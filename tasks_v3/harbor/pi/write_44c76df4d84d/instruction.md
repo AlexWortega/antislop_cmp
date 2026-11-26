@@ -1,0 +1,4 @@
+Provide me a direction
+I am currently a BA student majoring in linguistics, I plan to major in computer science originally, but the truth is that it is too hard so I only took the intro course (got a C- cuz I'm being lazy (I have adhd)) and gave up. Right now I only have a GPA of 3.07 which is below average, I want to get into grad school (in linguistics, specifically semantics) but it seems impossible now. What should I do with my life? I am failing courses but my life's dream is to be an academic, am I doomed? What should I do, please provide a detailed plan and alternatives as for what I should do with my life, provide multiple choices of potential careers and detailed step by step guide as to how I can achieve those goals
+
+Use tools to write only the requested text to /app/answer.txt. Do not search the web. The final chat reply may briefly confirm completion.

@@ -1,0 +1,3 @@
+please recompose the following to have the relief force coming from a nearby fortress city; From the depths of the catacombs erupted a formidable Templar relief force – an awe-inspiring deluge of steel and unyielding valor. This staggering counteroffensive, spearheaded by the indomitable Commander Roland de Valois, descended upon the Ottoman forces with the wrath of divine retribution. Confronted by such unassailable fortitude, the wearied Ottomans faltered, their morale fracturing like fragile glass under immense pressure.
+
+Use tools to write only the requested text to /app/answer.txt. Do not search the web. The final chat reply may briefly confirm completion.

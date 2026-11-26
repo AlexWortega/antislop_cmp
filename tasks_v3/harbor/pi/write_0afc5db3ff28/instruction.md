@@ -1,0 +1,3 @@
+Script about Trevor Lawrence pick sixes against 🐏
+
+Use tools to write only the requested text to /app/answer.txt. Do not search the web. The final chat reply may briefly confirm completion.

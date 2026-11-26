@@ -1,0 +1,3 @@
+请润色以下段落：These changes have created new challenges for enterprises in terms of managing and optimizing their network infrastructure to ensure that the WAN can handle increased traffic volumes while maintaining performance and reliability.  The problem is that it's difficult to match the Quality of Service (QoS) at the network level with the Quality of Experience(QoE) that users perceive based on their application requirements. For instance, Casas et al.  were able to predict YouTube stalling events using network-layer data alone by calculating the estimated buffer size with several formulas and comparing it with empirical thresholds.
+
+Use tools to write only the requested text to /app/answer.txt. Do not search the web. The final chat reply may briefly confirm completion.

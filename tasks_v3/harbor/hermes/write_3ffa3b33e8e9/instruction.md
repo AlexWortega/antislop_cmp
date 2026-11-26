@@ -1,0 +1,3 @@
+create card which hit enemy three times by 2
+
+Use tools to write only the requested text to /app/answer.txt. Do not search the web. The final chat reply may briefly confirm completion.

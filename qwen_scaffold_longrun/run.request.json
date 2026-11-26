@@ -1,0 +1,78 @@
+{
+  "status": "preflight_passed",
+  "steps": {
+    "initial_target": 100,
+    "maximum": 200
+  },
+  "rollout_batch": {
+    "trajectories_per_step": 16,
+    "samples_per_task_scaffold_group": 4,
+    "groups_per_step": 4,
+    "scaffolds": {
+      "pi": 8,
+      "hermes": 8
+    },
+    "physical_concurrency": "to_be_sized_from_GPU_and_container_resources"
+  },
+  "lora": {
+    "rank": 32,
+    "alpha": 512,
+    "initialization": "expanded_step0001_preserving_policy",
+    "reason": "User requested rank32 alpha512"
+  },
+  "generation": {
+    "max_new_tokens_per_model_call": 2048,
+    "temperature": 1.0,
+    "top_p": 1.0,
+    "max_turns": 4
+  },
+  "budget_usd": {
+    "gpu": 150,
+    "opus": 120
+  },
+  "reward": {
+    "version": "linear_quality_v2",
+    "unslop": "quality/10 * length_factor * (0.7 + 0.3 * not_slop)",
+    "traffic": "alias_match * quality/4 * (0.7 + 0.3 * not_slop)",
+    "unavailable_judge": "mask; never impute a quality label",
+    "diversity": {
+      "metric": "cosine_similarity_of_answer_embeddings",
+      "threshold": 0.5,
+      "direction": "cosine_distance_above_0.5",
+      "weight": 0.1,
+      "status": "interpreted_from_nonidentical_answers_intent",
+      "scope": "within same task and scaffold, final answers only",
+      "quality_gate_required": true,
+      "legacy_reference": "../qwen_verl_pilot/scaffold_training/legacy/grpo/semantic_diversity.py",
+      "aggregation": "nearest_peer",
+      "formula": "D = clip((0.5 - max_peer_cosine_similarity)/0.5, 0, 1)",
+      "bonus": "0.1 * correctness * quality * length_factor * not_slop * D, only when quality >= 0.7"
+    },
+    "maximum": 1.1
+  },
+  "data": {
+    "traffic_train_available": 445,
+    "traffic_dev_available": 60,
+    "unslop_en_tweets_train_available": 8,
+    "unslop_en_tweets_dev_available": 4,
+    "official_test": "untouched",
+    "source_root": "../qwen_verl_pilot/dataset_sources"
+  },
+  "training_contract": {
+    "fresh_rollouts_each_step": true,
+    "immutable_policy_id_per_step": true,
+    "exact_token_logprobs_required": true,
+    "optimizer_steps_not_replay_epochs": true,
+    "validation_every_steps": 10,
+    "checkpoint_every_steps": 10,
+    "last_checkpoint_on_budget_stop": true,
+    "physical_concurrency": 12,
+    "learning_rate": 2e-07,
+    "warmup_steps": 5,
+    "validation_samples_per_task_scaffold": 4
+  },
+  "preflight_requirements": [
+    "Measure full-batch wall time and API cost on first steps.",
+    "Maintain independent GPU and Opus budget guards."
+  ]
+}

@@ -1,0 +1,8 @@
+Rewrite the draft below so it reads like a person wrote it. Keep every fact and the meaning, keep it at about 235 words, and do not add new claims. Plain prose only.
+
+Draft:
+The industrial ovens hummed their low, steady lullaby, filling the air with the scent of yeast and burnt sugar. Elias wiped flour from his forearms, checking the clock: 3:17 AM. It was Thursday. He walked to the front counter, where a single, worn paperback lay on the glass display case, just as it had for the past six weeks. *The Shadow of the Wind*. He picked it up, feeling the familiar weight of its dog-eared pages. Usually, he simply placed it in the return bin behind the register, assuming a confused customer had mistaken the bakery’s late-night drop-box slot for a library return. But tonight, something felt different. The book was slightly warmer than the cool air of the shop.
+
+He opened it to the bookmarked page. A folded square of lined notebook paper slipped out, fluttering to the countertop. Elias hesitated, then unfolded it. The handwriting was jagged, hurried. *I know you’re reading it. Keep going. Page 204 changes everything.* His heart hammered against his ribs, a sudden, sharp rhythm against the quiet hum of the mixers. He looked around the empty shop, the shadows stretching long across the tiled floor. No one was there. He looked back at the note, then at the book. With trembling fingers, he turned to page 204. The text blurred before his eyes. He closed the book, pressed it flat against the counter, and reached for his pen.
+
+Use tools to write only the requested text to /app/answer.txt. Do not search the web. The final chat reply may briefly confirm completion.

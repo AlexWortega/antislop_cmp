@@ -1,0 +1,3 @@
+Write a very detailed story with a lot of dialogues, about the last byzantine soldier, escaped from ottomans conquering while his empire falls. While this is happening... the ghost of carthaginians and other past Rome's rivals see, so as this last soldier despair, not knowing what to do and trying desperately to understand what to do in such a desperate situation. Write what they say, and what they think of all of this, and if possible use historical figures.
+
+Use tools to write only the requested text to /app/answer.txt. Do not search the web. The final chat reply may briefly confirm completion.

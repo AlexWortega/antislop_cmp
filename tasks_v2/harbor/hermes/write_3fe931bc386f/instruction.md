@@ -1,0 +1,6 @@
+Rewrite the draft below so it reads like a person wrote it. Keep every fact and the meaning, keep it at about 160 words, and do not add new claims. Plain prose only.
+
+Draft:
+Approximately two years ago, we ordered two shirts for my father from Rockmount Ranch Wear by telephone. The shirts never arrived because the sales representative recorded the delivery address incorrectly: her handwritten “7” was interpreted as a “1.” The intended address was 5407, but the package was sent to 5401. The residents of 5401 brought it to the local UPS store for return. The package disappeared and was never seen or heard from again. We did not learn until several weeks later. During the dispute, we placed an additional order for two shirts. Rockmount refused to refund the original two. The owner handled it at that stage. He acknowledged the shipment went to the wrong address but said no refund until the shirts were returned. He claimed we were partly responsible because we had not been friendly enough to the residents at 5401, four doors away. We disputed the original charge with our credit-card company and eventually received a credit.
+
+Use tools to write only the requested text to /app/answer.txt. Do not search the web. The final chat reply may briefly confirm completion.

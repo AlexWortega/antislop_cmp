@@ -1,0 +1,49 @@
+{
+  "model": "Qwen/Qwen3.8-27B",
+  "model_revision": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+  "verl_revision": "8df5baeed0f5ecdd7f870d83bc3d79194816e2a9",
+  "budget_total": 20,
+  "api_cap": 4,
+  "gpu_max_hours": 3,
+  "max_offer_hourly": 4.1,
+  "network_storage_reserve": 2,
+  "steps": 4,
+  "prompts_per_step": 4,
+  "rollouts_per_prompt": 4,
+  "reward": "quality/4 * (0.7 + 0.3 * not_slop), separate Opus calls; fail closed on judge errors",
+  "validation": "16 topic-disjoint prompts across 4 scaffolds, baseline and final; pilot does not establish general improvement",
+  "prior_recipe": "cv/sep/antislop_grpo/setup_azrtx.sh; configs/astra2.yaml; 11_grpo_train.py",
+  "stack": "Committed verl uv.lock, vLLM 0.32.0 / torch2.13 / transformers5.16.1, rather than mixing the prior TRL stack",
+  "actor_base_dtype": "bfloat16",
+  "initialization_retry": "Default FP32 loading stopped before any optimizer step; restart with explicit BF16 matching previous LoRA recipe.",
+  "cpu_threads": 4,
+  "initialization_retries": [
+    "Stopped default FP32 initialization before optimizer steps; explicitly selected BF16.",
+    "Stopped BF16 initialization with 317 threads and heavy cgroup CPU throttling; set OMP/MKL/OPENBLAS threads to 4.",
+    "Faulthandler localized delay to torch FSDP2 pin_memory. Disabled CPUOffloadPolicy in favor of verl manual parameter/optimizer offload. Diagnostic-only source patch saved."
+  ],
+  "offload_policy": false,
+  "quality_judge_retry": "512-token call cached; if finish_reason=length retry exact rubric at 2048 tokens, fail closed if still incomplete",
+  "judge_concurrency": 4,
+  "baseline_reuse": "Complete step0 validation saved from attempt6, before any optimizer update; subsequent restart skips repeat baseline. 16 unique held-out topic/scaffold pairs verified.",
+  "source_switch": {
+    "repository": "https://github.com/AlexWortega/antislop-scaffold-training",
+    "commit": "959e3566727d2fbb6cbfccc47691c15dcdfe5a2c",
+    "model": "AlexWortega/Qwen3.8-27B-antislop",
+    "revision": "395c2c057ac4d7d6fa333dd9774a652039ebddb6",
+    "reason": "User specified authoritative repository; original plain-Qwen/system-prompt pilot stopped, not scaffold training evidence"
+  },
+  "active_dataset_protocol": "dataset_protocol.json",
+  "active_protocol_sha256": "5e9897c1a697b9883c7783c41603864f59302881429eaee0fd86cc7e8c4a6bdb",
+  "active_update": "One exact-token GRPO update using scaffold_training/grpo_update.py from requested commit plus local audit/alignment patches; earlier verl prose attempt stopped before updates.",
+  "active_reward": "traffic alias correctness gate * quality * anti-slop factor; unslop frozen native rubric/length reward * anti-slop factor",
+  "scaffold_runtime": {
+    "pi": "1.4.0",
+    "hermes": "v0.22.5",
+    "hermes_toolsets": "terminal",
+    "max_turns": 4,
+    "generation": "vLLM 0.32; exact audited token IDs and logprobs; temperature1/top_p1/top_k-1",
+    "agent_install": "prebuilt per-agent Docker images, native Harbor skip_install option for subsequent trials"
+  },
+  "hermes_context_fix": "Native stable Hermes requires >=64000 context. Restore repository 65536 max_model_len; original 16K cap was too low. Preserve unsuccessful baseline attempts separately."
+}

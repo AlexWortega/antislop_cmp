@@ -1,0 +1,222 @@
+# AReaL probe: Qwen3.8-27B-antislop, LoRA r32/a64, 2 x H200, async (1 GPU trains, 1 GPU generates).
+# Written against AReaL v2.1.1, vLLM variant (pyproject.vllm.toml: vllm==0.19.1, torch 2.10).
+# Keys checked against areal/api/cli_args.py at v2.1.1. Not executed yet.
+#
+# Mapping from our verl run (judge_playground/vast_core.py scripts()):
+#   adv_estimator=grpo + norm_adv_by_std_in_grpo=False -> actor.reward_norm {mean_level: group, std_level: null}, adv_norm: null
+#   use_kl_loss=False, kl_coef=0                       -> actor.kl_ctl: 0.0, ref: null
+#   clip_ratio_low/high 0.2/0.28                        -> actor.eps_clip / actor.eps_clip_higher
+#   ppo_mini_batch_size = per_step // 2                 -> actor.ppo_n_minibatches: 2
+#   loss_agg_mode=token-mean                            -> actor.loss_aggregation: token_mean
+#   staleness_threshold 0.5, sync_every 1               -> rollout.max_head_offpolicyness: 1
+#   rollout.n=8, prompts_per_step=4 (probe)             -> gconfig.n_samples: 8, train_dataset.batch_size: 4
+
+experiment_name: antislop-areal-probe
+trial_name: probe0
+
+seed: 20261110
+enable_offload: false          # true only for actor/rollout colocation on one GPU (torch_memory_saver)
+total_train_epochs: 1
+total_train_steps: 10
+tokenizer_path: ${actor.path}
+
+cluster:
+  n_nodes: 1
+  n_gpus_per_node: 2
+  fileroot: /workspace/areal_runs
+  name_resolve:
+    type: nfs
+    nfs_record_root: /workspace/areal_runs/name_resolve
+
+scheduler:
+  type: local
+
+gconfig:
+  n_samples: 8
+  min_new_tokens: 0
+  max_new_tokens: 2048           # per model call, as native_agent.py (min(2048, remaining))
+  max_tokens: 16384              # prompt + completion of one call (max_prompt_length + max_response_length)
+  greedy: false
+  temperature: 1.0
+  lora_name: antislop            # required when rollout.use_lora=true; adapters load as antislop-v<N>
+
+eval_gconfig:
+  n_samples: 2
+  max_new_tokens: 2048
+  max_tokens: 16384
+  greedy: false
+  temperature: 1.0
+  lora_name: antislop
+
+rollout:
+  backend: "vllm:d1"             # GPU 1: one vLLM server, TP 1
+  experiment_name: ${experiment_name}
+  trial_name: ${trial_name}
+  fileroot: ${cluster.fileroot}
+  tokenizer_path: ${tokenizer_path}
+  max_concurrent_rollouts: 32    # 4 prompts x 8 samples in flight; the coordinator has 64 trial slots
+  queue_size: null
+  consumer_batch_size: ${train_dataset.batch_size}
+  max_head_offpolicyness: 1      # async: a batch may come from weights one version old
+  enable_rollout_tracing: false
+  dump_to_file: true
+  setup_timeout: 1800
+  request_timeout: 3600          # a Harbor trial plus judging can take many minutes
+  use_lora: true
+  scheduling_spec:
+    - task_type: worker
+      port_count: 2
+      gpu: 1
+      mem: 64
+      cmd: python3 -m areal.infra.rpc.rpc_server
+      env_vars:
+        PYTHONPATH: /workspace/lab/areal_probe
+        ANTISLOP_NATIVE_ROOT: /workspace/lab/native
+  agent:
+    mode: inline                 # run() is called in the rollout worker with base_url/api_key of AReaL's proxy
+    admin_api_key: ${oc.env:AREAL_ADMIN_KEY}
+    tool_call_parser: qwen3_coder   # Qwen3.5/3.8 XML tool calls; vLLM's qwen3_xml is the same format
+    reasoning_parser: qwen3
+    chat_template_type: concat   # child prompts reuse the parent's sampled tokens (no re-tokenization)
+    chat_template_kwargs:
+      enable_thinking: false     # as data.apply_chat_template_kwargs.enable_thinking=False in verl
+    export_style: concat         # one row per linear trajectory (the whole multi-turn session), not one per turn
+    turn_discount: 1.0           # only used by export_style=individual
+    drop_retry_orphans: true     # Hermes retries/rewinds: drop the response it discarded
+    engine_max_tokens: 16384
+    session_timeout_seconds: 3600
+
+actor:
+  backend: "fsdp:d1"             # GPU 0: FSDP2 on one GPU (no sharding, d1)
+  experiment_name: ${experiment_name}
+  trial_name: ${trial_name}
+  path: /workspace/model         # snapshot of rawmodels/Qwen3.8-27B-antislop @ 395c2c05
+  init_from_scratch: false
+  disable_dropout: true
+  gradient_checkpointing: true
+  attn_impl: sdpa                # as examples/vlm/qwen3_6_27b_geometry3k_grpo.yaml
+  dtype: bfloat16
+  # Base weights are stored in optimizer_dtype. The default float32 puts a 27B base at ~108 GB on the
+  # training GPU before activations; bfloat16 keeps it at ~54 GB. adam_bf16 = AdamW with Kahan summation,
+  # so bf16 LoRA weights still take small updates (plain adam + bf16 is AReaL issue #1292).
+  optimizer_dtype: bfloat16
+  use_lora: ${rollout.use_lora}
+  peft_type: lora
+  lora_rank: 32
+  lora_alpha: 64
+  target_modules: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj, in_proj_qkv, in_proj_z, out_proj]
+  # No exclude_modules key in AReaL: these names do not occur in the Qwen3.5 vision tower (attn.qkv, attn.proj, linear_fc1/2).
+  weight_update_mode: disk       # LoRA must use disk: the adapter is saved and loaded into vLLM each version
+  mb_spec:
+    max_tokens_per_mb: 16384
+  fsdp:
+    memory_efficient_load: true
+  optimizer:
+    type: adam_bf16
+    lr: 3.0e-5
+    weight_decay: 0.0
+    beta1: 0.9
+    beta2: 0.999
+    eps: 1.0e-8
+    lr_scheduler_type: constant
+    gradient_clipping: 1.0
+    warmup_steps_proportion: 0.0
+  temperature: ${gconfig.temperature}
+  eps_clip: 0.2
+  eps_clip_higher: 0.28
+  kl_ctl: 0.0
+  reward_scaling: 1.0
+  reward_bias: 0.0
+  reward_norm:                   # GRPO group baseline without std division (Dr. GRPO)
+    mean_level: group
+    std_level: null
+    group_size: ${gconfig.n_samples}
+  adv_norm: null
+  loss_aggregation: token_mean
+  ppo_n_minibatches: 2
+  use_decoupled_loss: true       # off-policy correction for max_head_offpolicyness=1
+  recompute_logprob: true
+  prox_logp_method: recompute    # 'loglinear' skips the extra forward (like verl bypass_old_logprob)
+  rejection_sampling:
+    metric: ratio
+    upper: 5.0
+  max_new_tokens: ${gconfig.max_new_tokens}
+  scheduling_spec:
+    - task_type: worker
+      port_count: 2
+      gpu: 1
+      mem: 160
+      cmd: python3 -m areal.infra.rpc.rpc_server
+      env_vars:
+        PYTORCH_ALLOC_CONF: "expandable_segments:True"
+
+ref: null
+
+vllm:
+  model: ${actor.path}
+  seed: ${seed}
+  skip_tokenizer_init: false
+  dtype: ${actor.dtype}
+  max_model_len: 65536
+  max_num_seqs: 64
+  gpu_memory_utilization: 0.85
+  enforce_eager: false
+  enable_lora: ${rollout.use_lora}
+  max_lora_rank: ${actor.lora_rank}
+  max_loras: 4                   # AReaL keeps max_head_offpolicyness + 2 adapter versions loaded
+
+train_dataset:
+  batch_size: 4                  # prompts per step; each yields n_samples trials
+  shuffle: false                 # rows.json is already in step order (one agent per step)
+  pin_memory: false
+  num_workers: 0
+  path: unused                   # train.py passes the dataset object
+  type: rl
+
+valid_dataset:
+  batch_size: 4
+  shuffle: false
+  pin_memory: false
+  num_workers: 0
+  path: unused
+  type: rl
+
+saver:
+  experiment_name: ${experiment_name}
+  trial_name: ${trial_name}
+  fileroot: ${cluster.fileroot}
+  freq_epochs: null
+  freq_steps: 5                  # LoRA saves adapter_model.safetensors + adapter_config.json (PEFT)
+  freq_secs: null
+
+recover:
+  mode: disabled
+  experiment_name: ${experiment_name}
+  trial_name: ${trial_name}
+  fileroot: ${cluster.fileroot}
+  freq_epochs: null
+  freq_steps: null
+  freq_secs: null
+
+evaluator:
+  experiment_name: ${experiment_name}
+  trial_name: ${trial_name}
+  fileroot: ${cluster.fileroot}
+  freq_epochs: null              # no eval in the probe
+  freq_steps: null
+  freq_secs: null
+
+stats_logger:
+  experiment_name: ${experiment_name}
+  trial_name: ${trial_name}
+  fileroot: ${cluster.fileroot}
+  wandb:
+    mode: disabled
+
+perf_tracer:
+  experiment_name: ${experiment_name}
+  trial_name: ${trial_name}
+  fileroot: ${cluster.fileroot}
+  enabled: false
+  session_tracer:
+    enabled: false

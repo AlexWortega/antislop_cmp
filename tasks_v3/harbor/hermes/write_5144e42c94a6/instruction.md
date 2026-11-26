@@ -1,0 +1,3 @@
+сколько места нужно для windows 7 x86 starter
+
+Use tools to write only the requested text to /app/answer.txt. Do not search the web. The final chat reply may briefly confirm completion.

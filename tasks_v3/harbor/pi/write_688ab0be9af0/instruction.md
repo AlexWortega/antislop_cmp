@@ -1,0 +1,3 @@
+Why should you make words? You should make words because every word is a chance to express your idea and get your meaning across. And new words grab people’s attention. They get people to focus on what you’re saying and that gives you a better chance to get your meaning across. And a lot of people on this stage today have said, “In the future, you can do this, you can help with this, you can help us explore, you can help us invent.” You can make a new word right now. English has no age limit. Go ahead, start making words today, send them to me, and I will put them in my online dictionary, Wordnik. Thank you so much.用英语概括一下
+
+Use tools to write only the requested text to /app/answer.txt. Do not search the web. The final chat reply may briefly confirm completion.

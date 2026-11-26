@@ -1,0 +1,8 @@
+Rewrite the draft below so it reads like a person wrote it. Keep every fact and the meaning, keep it at about 246 words, and do not add new claims. Plain prose only.
+
+Draft:
+You get told remote work is a win for everybody. I've mentored five junior engineers for the last two years and it isn't. They don't need tickets, docs, or a set of scheduled meetings. What they need is to get in on design arguments, watch somebody else get through a nasty bug, and get answers before a little uncertainty snowballs. You get all of that for free in an office. Work from home and they have to figure out when to interrupt, get a call set up, and explain a problem they probably don't get yet. That is a pretty steep thing to ask of someone who hasn't had the chance to learn it.
+
+I've watched that setup screw up feedback. A short note on a code review ends up reading like a final judgment, and the lag on getting answers kills any forward motion. The people I worked with moved ahead a lot quicker when they could pair up in person, work through things on a whiteboard, and actually get hold of the seniors. None of this means you should scrap flexibility. It works fine for people who can direct their own efforts. For a beginner, being around other people is what gets them there. It is how they pick up the confidence, context, and judgment they are going to need. You are going to end up with weaker technical leadership down the road if you just hand a newcomer a laptop and a calendar.
+
+Use tools to write only the requested text to /app/answer.txt. Do not search the web. The final chat reply may briefly confirm completion.

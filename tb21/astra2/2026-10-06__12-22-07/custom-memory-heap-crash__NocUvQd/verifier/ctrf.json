@@ -1,0 +1,83 @@
+{
+    "results": {
+        "tool": {
+            "name": "pytest",
+            "version": "8.4.1"
+        },
+        "summary": {
+            "tests": 6,
+            "passed": 3,
+            "failed": 3,
+            "skipped": 0,
+            "pending": 0,
+            "other": 0,
+            "start": 1791296604.240206,
+            "stop": 1791296610.2385108
+        },
+        "tests": [
+            {
+                "name": "test_outputs.py::test_protected_files_not_modified",
+                "status": "passed",
+                "duration": 0.0006735748611390591,
+                "start": 1791296604.3163812,
+                "stop": 1791296604.3173118,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_program_compiles_debug",
+                "status": "passed",
+                "duration": 0.8786959955468774,
+                "start": 1791296604.3175204,
+                "stop": 1791296605.1966033,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_program_compiles_release",
+                "status": "passed",
+                "duration": 0.9858646425418556,
+                "start": 1791296605.1971424,
+                "stop": 1791296606.1834443,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_debug_build_runs_without_crash",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 1.0366388484835625,
+                "start": 1791296606.1840127,
+                "stop": 1791296607.2432795,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_debug_build_runs_without_crash():\n        \"\"\"\n        Test that the debug build runs without crashing.\n        Debug build should ALWAYS pass because it uses malloc/free instead of custom heap.\n        \"\"\"\n        executable = compile_program(\"debug\")\n        result = run_program(executable)\n    \n        # Debug build should always complete successfully (no custom heap used)\n>       assert (\n            result.returncode == 0\n        ), f\"Debug build crashed unexpectedly!\\nSTDOUT:\\n{result.stdout}\\nSTDERR:\\n{result.stderr}\"\nE       AssertionError: Debug build crashed unexpectedly!\nE         STDOUT:\nE         \nE         STDERR:\nE         at 0x564da76acec8 raw 0e9a0105 amount 244973829 end 0x564da78ace70\nE         the second part has been wanting\nE         \nE       assert -6 == 0\nE        +  where -6 = CompletedProcess(args='/app/debug', returncode=-6, stdout='', stderr='at 0x564da76acec8 raw 0e9a0105 amount 244973829 end 0x564da78ace70\\nthe second part has been wanting\\n').returncode\n\n/tests/test_outputs.py:125: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_release_build_runs_without_crash",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 1.101884970907122,
+                "start": 1791296607.2435417,
+                "stop": 1791296608.3520684,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_release_build_runs_without_crash():\n        \"\"\"\n        Test that the release build runs without crashing.\n        This test will fail on the buggy version but pass on the fixed version.\n        \"\"\"\n        executable = compile_program(\"release\")\n        result = run_program(executable)\n    \n        # After the fix, release build should complete successfully\n>       assert (\n            result.returncode == 0\n        ), f\"Release build crashed! This indicates the bug is not fixed.\\nSTDOUT:\\n{result.stdout}\\nSTDERR:\\n{result.stderr}\"\nE       AssertionError: Release build crashed! This indicates the bug is not fixed.\nE         STDOUT:\nE         \nE         STDERR:\nE         at 0x564e92611fb2 raw 0d339705 amount 221484805 end 0x564e92811f60\nE         the second part has been wanting\nE         \nE       assert -6 == 0\nE        +  where -6 = CompletedProcess(args='/app/release', returncode=-6, stdout='', stderr='at 0x564e92611fb2 raw 0d339705 amount 221484805 end 0x564e92811f60\\nthe second part has been wanting\\n').returncode\n\n/tests/test_outputs.py:139: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_no_memory_leaks_with_valgrind",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 1.8782347775995731,
+                "start": 1791296608.3523862,
+                "stop": 1791296610.2380872,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_no_memory_leaks_with_valgrind():\n        \"\"\"\n        Test that there are no memory leaks using Valgrind.\n        This prevents cheating by using quick_exit() or similar workarounds.\n        If static destructors don't run, Valgrind will report memory leaks.\n        \"\"\"\n        executable = compile_program(\"release\")\n    \n        # Run with Valgrind to detect memory leaks\n        # --leak-check=full: detailed leak information\n        # --error-exitcode=1: exit with code 1 if leaks detected\n        # --errors-for-leak-kinds=definite: only catch definite leaks (real bugs)\n        #   We ignore \"still reachable\" and \"possible\" which can be false positives\n        #   from statically linked libstdc++\n        valgrind_cmd = [\n            \"valgrind\",\n            \"--leak-check=full\",\n            \"--error-exitcode=1\",\n            \"--errors-for-leak-kinds=definite\",\n            \"--quiet\",  # Reduce noise, only show errors\n            executable\n        ]\n    \n        result = subprocess.run(valgrind_cmd, capture_output=True, text=True, timeout=30)\n    \n        # Valgrind should exit with code 0 (no leaks) if destructors ran properly\n        # If quick_exit() was used, static destructors won't run and we'll have leaks\n>       assert (\n            result.returncode == 0\n        ), f\"Valgrind detected memory leaks! Static destructors may not be running.\\n\" \\\n           f\"This could mean you're using quick_exit(), _Exit(), or similar workarounds.\\n\" \\\n           f\"STDOUT:\\n{result.stdout}\\nSTDERR:\\n{result.stderr}\"\nE       AssertionError: Valgrind detected memory leaks! Static destructors may not be running.\nE         This could mean you're using quick_exit(), _Exit(), or similar workarounds.\nE         STDOUT:\nE         \nE         STDERR:\nE         at 0x121fb2 raw 0d339705 amount 221484805 end 0x321f60\nE         the second part has been wanting\nE         \nE       assert -6 == 0\nE        +  where -6 = CompletedProcess(args=['valgrind', '--leak-check=full', '--error-exitcode=1', '--errors-for-leak-kinds=definite', '--q...ode=-6, stdout='', stderr='at 0x121fb2 raw 0d339705 amount 221484805 end 0x321f60\\nthe second part has been wanting\\n').returncode\n\n/tests/test_outputs.py:171: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            }
+        ]
+    }
+}

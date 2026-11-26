@@ -1,0 +1,39 @@
+# Round 2: continue pgemu1 ck120 on hard rewrites (stories/reviews/corporate/essays) + old mix; coherence guard, harsher fidelity.
+# GRPO of Humanlike-Chat-2.0 (prod `antislop` weights, BF16) against the Opus-5.5 Pangram emulator.
+model:
+  path: /workspace/models/humanlike
+  lora:
+    rank: 32
+    init: /workspace/init/checkpoint-120
+    target_modules: '.*language_model.*\.(q_proj|k_proj|v_proj|o_proj|gate_proj|up_proj|down_proj|in_proj_qkv|in_proj_z|out_proj)$'
+data:
+  path: data/train.jsonl
+  columns:
+    prompt: prompt
+    question: question
+    task: task
+    keep: [target_words, allow_markdown, task_id, lang, source]
+thinking: false
+guards:            # fixed word corridor off: the per-task `length` term handles length
+  min_words: 15
+  target_words: 15
+  max_words: 2000
+  length_scale: 0.0
+rewards:
+  - {name: emu, weight: 2.0}
+  - {name: task, weight: 1.5}
+  - {name: length, weight: 1.0}
+  - {name: guards, weight: 0.7}
+train:
+  out: /workspace/runs/pgemu2
+  steps: 110
+  prompts_per_step: 6
+  num_generations: 8
+  micro_batch: 1
+  max_completion_length: 1024
+  lr: 1.0e-4
+  beta: 0.02
+  temperature: 1.0
+  save_steps: 10
+  vllm: true
+  vllm_port: 8000

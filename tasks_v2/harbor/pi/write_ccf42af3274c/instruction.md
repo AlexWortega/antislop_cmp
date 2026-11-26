@@ -1,0 +1,6 @@
+Rewrite the draft below so it reads like a person wrote it. Keep every fact and the meaning, keep it at about 145 words, and do not add new claims. Plain prose only.
+
+Draft:
+I agree with Misti Y-- that some people may love the Cirque shows and still dislike *Le Rêve*, although that comparison is really a separate discussion. For me, the theater and visual design are the strongest parts. The scenery and décor are breathtaking from beginning to end, and the whole concept behind the show is beautiful and appealing. Unfortunately, it doesn’t translate very well to the live performance. The storyline isn’t especially entertaining, and when I attended one performance, the stage malfunctioned repeatedly throughout the evening. That made it hard to stay engaged, even during the more impressive scenes. *Le Rêve* seems to be reaching for some of the flair and spectacle associated with Cirque, but it never quite gets there. I’d consider it mainly for the chance to experience that beautiful theater. Otherwise, you might be better off spending your money on another show.
+
+Use tools to write only the requested text to /app/answer.txt. Do not search the web. The final chat reply may briefly confirm completion.

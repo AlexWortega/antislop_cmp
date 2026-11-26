@@ -1,0 +1,220 @@
+diff --git a/scaffold_training/grpo_update.py b/scaffold_training/grpo_update.py
+index d6aa3c2..767b9c8 100644
+--- a/scaffold_training/grpo_update.py
++++ b/scaffold_training/grpo_update.py
+@@ -14,7 +14,7 @@ MODEL = "AlexWortega/Qwen3.8-27B-antislop"
+ REVISION = "395c2c057ac4d7d6fa333dd9774a652039ebddb6"
+ 
+ 
+-def validated_groups(path, max_len, protocol, policy_id):
++def validated_groups(path, max_len, protocol, policy_id, min_group_size=2):
+     frozen=json.loads(protocol.read_text())
+     protocol_hash=hashlib.sha256(protocol.read_bytes()).hexdigest()
+     allowed={r["task"] for r in frozen["tasks"] if r["split"]=="train"}
+@@ -27,6 +27,12 @@ def validated_groups(path, max_len, protocol, policy_id):
+             raise ValueError("Rollout provenance differs from the frozen protocol")
+         if group.get("policy_id")!=policy_id:
+             raise ValueError("Mixed or unexpected sampling policy")
++        if len(group['trajectories']) < min_group_size:
++            raise ValueError('Group is smaller than the requested minimum')
++        for trajectory in group['trajectories']:
++            outcome = trajectory['outcome']
++            if outcome.get('valid') and (type(outcome.get('reward')) not in (int,float) or not math.isfinite(outcome['reward']) or not 0 <= outcome['reward'] <= 1.100001):
++                raise ValueError('Invalid composite reward')
+         advantages = group_advantages([t["outcome"] for t in group["trajectories"]])
+         reason = None
+         if advantages is None:
+@@ -62,7 +68,10 @@ def main():
+     p.add_argument("--protocol", type=Path, required=True)
+     p.add_argument("--policy-id", required=True)
+     p.add_argument("--adapter", default="")
++    p.add_argument("--model-path", default=MODEL, help="Verified local snapshot of the pinned base, or its Hub ID")
+     p.add_argument("--rank", type=int, default=16)
++    p.add_argument("--alpha", type=int, default=512)
++    p.add_argument("--min-group-size", type=int, default=32)
+     p.add_argument("--max-len", type=int, default=16384)
+     p.add_argument("--lr", type=float, default=3e-6)
+     p.add_argument("--kl-beta", type=float, default=0.01)
+@@ -72,10 +81,10 @@ def main():
+     a.out.mkdir(parents=True, exist_ok=True)
+     if (a.out/"adapter_config.json").exists():
+         raise SystemExit("Refusing to overwrite an adapter")
+-    groups, rejected = validated_groups(a.rollouts, a.max_len, a.protocol, a.policy_id)
++    groups, rejected = validated_groups(a.rollouts, a.max_len, a.protocol, a.policy_id, a.min_group_size)
+     report = {"groups":len(groups), "rejected":rejected, "model":MODEL,"revision":REVISION,
+               "rollout_sha256":hashlib.sha256(a.rollouts.read_bytes()).hexdigest(),
+-              "lr":a.lr,"kl_beta":a.kl_beta,"clip":a.clip,"status":"preflight"}
++              "lr":a.lr,"kl_beta":a.kl_beta,"clip":a.clip,"rank":a.rank,"alpha":a.alpha,"status":"preflight"}
+     (a.out/"update.json").write_text(json.dumps(report,indent=2))
+     if not groups:
+         raise SystemExit("No valid groups with reward variance; no policy update was performed")
+@@ -90,12 +99,13 @@ def main():
+     from transformers import AutoModelForImageTextToText
+     from peft import get_peft_model, PeftModel, LoraConfig
+     torch.manual_seed(20261016)
+-    base = AutoModelForImageTextToText.from_pretrained(MODEL,revision=REVISION,dtype=torch.bfloat16,
++    base = AutoModelForImageTextToText.from_pretrained(a.model_path,revision=REVISION,dtype=torch.bfloat16,
+                                                      device_map={"":0},attn_implementation="sdpa")
+     if a.adapter:
+         model = PeftModel.from_pretrained(base,a.adapter,is_trainable=True)
++        assert model.peft_config['default'].r==a.rank and model.peft_config['default'].lora_alpha==a.alpha, 'Adapter scaling differs from requested config'
+     else:
+-        model = get_peft_model(base,LoraConfig(r=a.rank,lora_alpha=2*a.rank,lora_dropout=0.0,bias="none",
++        model = get_peft_model(base,LoraConfig(r=a.rank,lora_alpha=a.alpha,lora_dropout=0.0,bias="none",
+             target_modules=r".*language_model.*\.(q_proj|k_proj|v_proj|o_proj|gate_proj|up_proj|down_proj|in_proj_qkv|in_proj_z|out_proj)$"))
+     model.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant":False})
+     model.enable_input_require_grads()
+@@ -134,6 +144,9 @@ def main():
+             log_ratio=new-old
+             if not torch.isfinite(log_ratio).all():
+                 raise RuntimeError("Non-finite sampling/actor log ratio")
++            mean_abs_ratio=float(log_ratio.detach().abs().mean())
++            if mean_abs_ratio > 0.2:
++                raise RuntimeError(f"Sampling/actor log-probability mismatch: mean abs delta {mean_abs_ratio}")
+             ratio=torch.exp(torch.clamp(log_ratio,-20,20))
+             adv=float(traj["advantage"])
+             policy=-torch.minimum(ratio*adv,torch.clamp(ratio,1-a.clip,1+a.clip)*adv)
+@@ -144,7 +157,7 @@ def main():
+                 raise RuntimeError("Non-finite GRPO loss")
+             loss.backward()
+             entry={"trajectory":i,"turn":j,"tokens":len(old),"advantage":adv,"loss":float(loss.detach()),
+-                   "kl":float(kl.detach().mean()),"mean_log_ratio":float(log_ratio.detach().mean())}
++                   "kl":float(kl.detach().mean()),"mean_log_ratio":float(log_ratio.detach().mean()),"mean_abs_log_ratio":mean_abs_ratio}
+             logs.append(entry)
+             print(json.dumps(entry),flush=True)
+     norm=float(torch.nn.utils.clip_grad_norm_(params,1.0))
+@@ -156,7 +169,7 @@ def main():
+         raise RuntimeError("Adapter probes did not change")
+     model.save_pretrained(a.out)
+     torch.save(optimizer.state_dict(),a.out/"optimizer.pt")
+-    report.update({"status":"updated","trajectories":len(trajectories),"turns":len(logs),"gradient_norm":norm,
++    report.update({"status":"updated","trajectories":len(trajectories),"turns":len(logs),"gradient_norm":norm,"optimizer_steps":1,
+                    "adapter_probe_changed":changed,"trainable_parameters":sum(v.numel() for v in params),
+                    "peak_memory_gb":torch.cuda.max_memory_allocated()/1e9})
+     (a.out/"update.json").write_text(json.dumps(report,indent=2))
+diff --git a/scaffold_training/hermes_collect.py b/scaffold_training/hermes_collect.py
+index a7f941f..49a6a4e 100644
+--- a/scaffold_training/hermes_collect.py
++++ b/scaffold_training/hermes_collect.py
+@@ -12,6 +12,16 @@ from rewards import terminal_reward
+ 
+ 
+ async def collect(args):
++    if args.agent == "hermes" and args.preinstalled:
++        # Harbor ac533ec expects `hermes version`; pinned stable v0.22.5 uses --version.
++        from harbor.agents.installed.hermes import Hermes
++        Hermes.get_version_command = lambda self: 'export PATH="$HOME/.local/bin:$PATH"; hermes --version'
++        def parse_stable_version(self, stdout):
++            match = re.search(r"Hermes Agent (v[0-9.]+)", stdout)
++            if not match:
++                raise ValueError("Cannot verify the preinstalled Hermes version")
++            return match.group(1)
++        Hermes.parse_version = parse_stable_version
+     from harbor.models.trial.config import TrialConfig
+     from harbor.trial.trial import Trial
+ 
+@@ -54,7 +64,7 @@ async def collect(args):
+                           "model_api_format": "openai_chat_completions",
+                           "override_timeout_sec": args.timeout,
+                           "override_setup_timeout_sec": args.setup_timeout,
+-                          "kwargs": {"max_turns": args.max_turns}},
++                          "kwargs": {"max_turns": args.max_turns, "skip_install":args.preinstalled, **({"toolsets":"terminal"} if args.agent=="hermes" and args.terminal_only else {}), **({"version":args.agent_version} if args.agent_version else {})}},
+                 "environment": {"type": "docker", "delete": True},
+                 "verifier": {"disable": False},
+             })
+@@ -102,6 +112,9 @@ def main():
+     p.add_argument("--policy-id", required=True)
+     p.add_argument("--samples", type=int, default=2)
+     p.add_argument("--max-turns", type=int, default=16)
++    p.add_argument("--agent-version", default="")
++    p.add_argument("--preinstalled", action="store_true")
++    p.add_argument("--terminal-only", action="store_true")
+     p.add_argument("--timeout", type=int, default=1200)
+     p.add_argument("--setup-timeout", type=int, default=1200)
+     p.add_argument("--out", type=Path, required=True)
+diff --git a/scaffold_training/vllm_audit.py b/scaffold_training/vllm_audit.py
+index 877b44b..baee063 100644
+--- a/scaffold_training/vllm_audit.py
++++ b/scaffold_training/vllm_audit.py
+@@ -1,11 +1,24 @@
+ """ASGI request tracing inside native vLLM; no generation or tool parsing here."""
+ import json
++import math
+ import os
+ import re
+ import time
+ from pathlib import Path
+ 
+ 
++def aligned_logprobs(ids, entries):
++    if not ids or len(ids) != len(entries):
++        return None
++    values = []
++    for token_id, entry in zip(ids, entries):
++        value = entry.get('logprob')
++        if entry.get('token') != f'token_id:{token_id}' or type(value) not in (int, float) or not math.isfinite(value) or value > 0:
++            return None
++        values.append(value)
++    return values
++
++
+ class AuditMiddleware:
+     def __init__(self,app):self.app=app
+ 
+@@ -21,8 +34,17 @@ class AuditMiddleware:
+             part=await receive();raw+=part.get('body',b'')
+             if not part.get('more_body'):break
+         request=json.loads(raw)
+-        # Native vLLM supplies IDs for SFT. No logprob collection is requested.
+         request['return_token_ids']=True
++        cap = int(os.environ.get('ANTISLOP_MAX_NEW_TOKENS','2048'))
++        if cap < 1: raise ValueError('Invalid generation cap')
++        requested = request.pop('max_completion_tokens',request.get('max_tokens',cap))
++        request['max_tokens'] = min(cap,requested if isinstance(requested,int) and requested>0 else cap)
++        capture_rl = os.environ.get('ANTISLOP_CAPTURE_LOGPROBS') == '1'
++        if capture_rl:
++            # Freeze untruncated sampling; preserve native tool parsing and exact IDs.
++            request.update(logprobs=True, top_logprobs=0, return_tokens_as_token_ids=True,
++                           temperature=1.0, top_p=1.0, top_k=-1,
++                           repetition_penalty=1.0, presence_penalty=0.0, frequency_penalty=0.0)
+         if request.get('stream'):
+             request['stream_options']={**request.get('stream_options',{}),'include_usage':True}
+         payload=json.dumps(request).encode();replayed=False;chunks=[];status=None
+@@ -40,7 +62,7 @@ class AuditMiddleware:
+         try:await self.app(scope,replay,capture)
+         finally:
+             response_body=b''.join(chunks).decode(errors='replace')
+-            prompt_ids=[];response_ids=[];finish=None;response={}
++            prompt_ids=[];response_ids=[];finish=None;response={};logprob_entries=[]
+             try:
+                 if request.get('stream'):
+                     for line in response_body.splitlines():
+@@ -49,12 +71,14 @@ class AuditMiddleware:
+                         if event.get('prompt_token_ids') is not None:prompt_ids=event['prompt_token_ids']
+                         for choice in event.get('choices',[]):
+                             response_ids.extend(choice.get('token_ids') or [])
++                            logprob_entries.extend((choice.get('logprobs') or {}).get('content') or [])
+                             if choice.get('finish_reason'):finish=choice['finish_reason']
+                     response={'choices':[{'finish_reason':finish}]}
+                 else:
+                     response=json.loads(response_body);prompt_ids=response.get('prompt_token_ids') or []
+                     choice=(response.get('choices') or [{}])[0];response_ids=choice.get('token_ids') or []
+                     finish=choice.get('finish_reason')
++                    logprob_entries=(choice.get('logprobs') or {}).get('content') or []
+             except (ValueError,TypeError):pass
+             # Store exact tokens and status only. Raw requests/responses can contain
+             # private task content, credentials or tool output and are not needed
+@@ -64,6 +88,13 @@ class AuditMiddleware:
+                 'policy_id':os.environ.get('ANTISLOP_POLICY_ID',''),
+                 'prompt_ids':prompt_ids,'response_ids':response_ids,
+                 'status':status,'finish_reason':finish,'created':time.time()}
++            record['max_tokens'] = request['max_tokens']
++            if capture_rl:
++                old = aligned_logprobs(response_ids, logprob_entries)
++                record['sampling_policy'] = {k:request[k] for k in (
++                    'temperature','top_p','top_k','repetition_penalty','presence_penalty','frequency_penalty')}
++                record['logprob_alignment'] = 'exact' if old is not None else 'invalid'
++                if old is not None:record['old_logprobs']=old
+             root=Path(os.environ.get('ANTISLOP_AUDIT_DIR','./private/audit'))
+             root.mkdir(mode=0o700,parents=True,exist_ok=True)
+             data=json.dumps(record,ensure_ascii=False)

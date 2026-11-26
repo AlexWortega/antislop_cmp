@@ -1,0 +1,808 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Antislop lab</title>
+<style>
+:root{--bg:#f4f3ee;--paper:#fffefa;--ink:#202923;--muted:#74796f;--line:#dcded4;--green:#245a42;--orange:#a64b25;--soft:#ecebe3}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+button,input,select,textarea{font:inherit;color:inherit}
+.wrap{max-width:1400px;margin:auto;padding:20px 28px 60px}
+header{display:flex;align-items:center;gap:20px;border-bottom:1px solid var(--line);padding-bottom:14px;flex-wrap:wrap}
+h1{font-size:17px;margin:0}
+nav{display:flex;gap:4px}
+nav button{border:1px solid transparent;background:none;padding:6px 14px;border-radius:6px;cursor:pointer}
+nav button.on{background:var(--paper);border-color:var(--line);font-weight:600}
+.status{margin-left:auto;color:var(--muted);font-size:12px;display:flex;gap:14px;align-items:center}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#b55;margin-right:5px}.dot.ok{background:#38885b}
+section{display:none;padding-top:18px}section.on{display:block}
+.cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px}
+@media(max-width:1000px){.cols{grid-template-columns:1fr}}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:16px;margin-bottom:16px}
+.card h2{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--green);margin:0 0 12px}
+label{display:block;font-size:12px;color:var(--muted);margin-bottom:10px}
+label>input,label>select,label>textarea{display:block;width:100%;margin-top:3px}
+input,select,textarea{border:1px solid var(--line);border-radius:5px;padding:6px 8px;background:#fff}
+input[type=checkbox]{width:auto;display:inline-block;margin:0 6px 0 0}
+textarea{width:100%;resize:vertical;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;line-height:1.45}
+.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}
+.btn{background:var(--green);color:#fff;border:0;border-radius:6px;padding:8px 16px;cursor:pointer}
+.btn.ghost{background:none;color:var(--green);border:1px solid var(--green)}
+.btn.warn{background:var(--orange)}
+.btn:disabled{opacity:.5;cursor:wait}
+.bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:6px}
+.note{color:var(--muted);font-size:12px}
+.err{color:var(--orange);font-size:13px;white-space:pre-wrap}
+table{border-collapse:collapse;width:100%;font-size:12.5px}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:500;white-space:nowrap}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+tr.pick{cursor:pointer}tr.pick:hover{background:var(--soft)}
+.tag{display:inline-block;background:#f3ddd3;color:var(--orange);border-radius:4px;padding:0 6px;font-size:11px;margin-right:4px}
+.text{white-space:pre-wrap;max-height:220px;overflow:auto;background:var(--soft);padding:8px;border-radius:5px;font-size:12.5px}
+.big{font-size:22px;font-weight:650}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:12px;margin-bottom:12px}
+.kpis div{background:var(--soft);border-radius:6px;padding:8px 10px}.kpis span{display:block;font-size:11px;color:var(--muted)}
+pre{background:#1f2622;color:#dfe6df;padding:10px;border-radius:6px;font-size:11.5px;max-height:260px;overflow:auto;white-space:pre-wrap;margin:0}
+svg{width:100%;height:190px;background:var(--soft);border-radius:6px}
+.charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
+.fields input{width:100%}
+.steps{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}
+.steps span{padding:3px 10px;border-radius:12px;background:var(--soft);color:var(--muted);font-size:12px}
+.steps span.done{background:#dbe9df;color:var(--green)}.steps span.now{background:var(--green);color:#fff;font-weight:600}
+.steps span.bad{background:var(--orange);color:#fff;font-weight:600}
+.alert{border:1px solid var(--orange);background:#fbeee8;border-radius:8px;padding:14px;margin-bottom:16px}
+.alert h3{margin:0 0 6px;font-size:14px;color:var(--orange)}.alert pre{max-height:320px;margin-top:8px}
+.alert .hint{font-weight:600;margin-top:8px}
+.logbox{background:#1f2622;color:#dfe6df;border-radius:6px;padding:8px 10px;height:460px;overflow:auto;font:11.5px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}
+.logbox div{white-space:pre-wrap;word-break:break-word}
+.logbox .t{color:#7d8a80;margin-right:8px}.logbox .s{color:#8fb8a0;margin-right:8px}
+.logbox .lv-error{color:#ff9d7a;font-weight:600}.logbox .lv-warn{color:#f0c674}.logbox .lv-stage{color:#9fe0b5;font-weight:600}
+.logbox .lv-metric{color:#8fd0ea}.logbox .lv-log{color:#b9c2ba}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>Antislop lab</h1>
+  <nav id="nav"></nav>
+  <div class="status" id="status"></div>
+</header>
+
+<section id="tab-judge">
+ <div class="cols">
+  <div>
+   <div class="card"><h2>Модель судьи</h2>
+    <div class="row">
+     <label>Модель<input data-p="judge.model" list="models"><datalist id="models"></datalist></label>
+     <label>Base URL<input data-p="judge.base_url"></label>
+     <label>Переменная с ключом<input data-p="judge.api_key_env"></label>
+    </div>
+    <div class="row">
+     <label>Режим<select data-p="judge.mode"><option value="single">один текст на вызов</option><option value="group">вся группа одним вызовом</option></select></label>
+     <label>Reasoning<select data-p="judge.reasoning_effort"><option value="">не передавать</option><option>minimal</option><option>low</option><option>medium</option><option>high</option></select></label>
+     <label>max_tokens<input data-p="judge.max_tokens" data-t="num"></label>
+     <label>temperature (пусто = по умолчанию)<input data-p="judge.temperature" data-t="optnum"></label>
+     <label>Параллельных вызовов<input data-p="judge.concurrency" data-t="num"></label>
+    </div>
+    <label><input type="checkbox" data-p="judge.structured" data-t="bool">строгая JSON-схема (выключить, если endpoint её не умеет)</label>
+   </div>
+   <div class="card"><h2>Промпт судьи</h2>
+    <div class="bar" style="margin:0 0 8px"><select id="promptFile"></select><button class="btn ghost" id="loadPrompt">Загрузить пресет</button><span class="note" id="promptLen"></span></div>
+    <textarea data-p="judge.system" rows="16"></textarea>
+    <label>Контракт ответа (пусто = собрать из полей оценки)<textarea data-p="judge.contract" rows="4"></textarea></label>
+    <label>Шаблон сообщения судье для режима «свой шаблон»: {task} и {text} подставляются; списки в ответе превращаются в их длину<textarea data-p="judge.user_template" rows="6"></textarea></label>
+    <div class="row">
+     <label>Вход судьи<select data-p="judge.input"><option value="assignment">задание + кандидаты</option><option value="items">только тексты (массив id/text)</option><option value="template">свой шаблон, один текст на вызов</option></select></label>
+     <label><input type="checkbox" data-p="judge.reason" data-t="bool">просить обоснование</label>
+     <label><input type="checkbox" data-p="judge.cache_prompt" data-t="bool">кэшировать промпт у провайдера</label>
+    </div>
+    <p class="note">Формат ответа дописывается к промпту автоматически из полей оценки ниже.</p>
+   </div>
+   <div class="card"><h2>Поля оценки</h2>
+    <table class="fields"><thead><tr><th>Имя</th><th>Мин</th><th>Макс</th><th>Что означает</th><th></th></tr></thead><tbody id="fields"></tbody></table>
+    <div class="bar"><button class="btn ghost" id="addField">Добавить поле</button></div>
+   </div>
+   <div class="card"><h2>Судья задания (второй)</h2>
+    <p class="note">Проверяет только, выполнено ли задание. Его поле <b>task</b> (0–10) доступно в формуле награды. Сверяется на наборе tasks_v2/task_calib.jsonl во вкладке «Сверка».</p>
+    <label><input type="checkbox" data-p="task_judge.enabled" data-t="bool">включён</label>
+    <div class="row">
+     <label>Модель<input data-p="task_judge.model" list="models"></label>
+     <label>Переспросить, если оценка ниже (0 = нет)<input data-p="task_judge.confirm_below" data-t="num"></label>
+     <label>Base URL<input data-p="task_judge.base_url"></label>
+     <label>Переменная с ключом<input data-p="task_judge.api_key_env"></label>
+    </div>
+    <div class="row">
+     <label>Режим<select data-p="task_judge.mode"><option value="single">один текст на вызов</option><option value="group">вся группа одним вызовом</option></select></label>
+     <label>Reasoning<select data-p="task_judge.reasoning_effort"><option value="">не передавать</option><option>minimal</option><option>low</option><option>medium</option><option>high</option></select></label>
+     <label>max_tokens<input data-p="task_judge.max_tokens" data-t="num"></label>
+     <label>Параллельных вызовов<input data-p="task_judge.concurrency" data-t="num"></label>
+    </div>
+    <label>Промпт<textarea data-p="task_judge.system" rows="10"></textarea></label>
+    <div class="row">
+     <label>Задание считается невыполненным, когда<input data-p="task_calibration.ai_when"></label>
+     <label>Поле для AUROC<input data-p="task_calibration.score_field"></label>
+    </div>
+   </div>
+   <div class="card"><h2>Награда</h2>
+    <label>Формула (результат обрезается до 0..1)<input data-p="reward.formula"></label>
+    <p class="note">Доступны: поля оценки, <b>length</b> (1 в коридоре длины, дальше падает), <b>penalty</b> (сумма штрафов), words, target, emoji, hashtag, markdown, language_switch (0 или 1), функции min, max, abs, exp, log, sqrt.</p>
+    <div class="row">
+     <label>Коридор длины, доля<input data-p="reward.length_tolerance" data-t="num"></label>
+     <label>Крутизна спада длины<input data-p="reward.length_scale" data-t="num"></label>
+     <label>Потолок штрафа<input data-p="reward.penalty_cap" data-t="num"></label>
+    </div>
+    <div class="row">
+     <label>Штраф: эмодзи<input data-p="reward.penalties.emoji" data-t="num"></label>
+     <label>Штраф: хэштеги<input data-p="reward.penalties.hashtag" data-t="num"></label>
+     <label>Штраф: markdown<input data-p="reward.penalties.markdown" data-t="num"></label>
+     <label>Штраф: не тот язык<input data-p="reward.penalties.language_switch" data-t="num"></label>
+    </div>
+    <label><input type="checkbox" data-p="reward.rank_normalize" data-t="bool">заменять награду рангом внутри группы (0..1)</label>
+   </div>
+   <div class="card"><h2>Сверка с Pangram и бюджет</h2>
+    <div class="row">
+     <label>Текст считается AI, когда<input data-p="calibration.ai_when"></label>
+     <label>Поле для AUROC<input data-p="calibration.score_field"></label>
+     <label><input type="checkbox" data-p="calibration.higher_is_ai" data-t="bool">больше = AI</label>
+     <label>Бюджет, $<input data-p="budget_usd" data-t="num"></label>
+    </div>
+   </div>
+   <div class="bar"><button class="btn" id="save">Сохранить конфиг</button><span class="note" id="saveMsg"></span></div>
+  </div>
+  <div>
+   <div class="card"><h2>Проверка на группе ответов</h2>
+    <label>Задание<textarea id="jTask" rows="4" placeholder="Что просили написать"></textarea></label>
+    <div class="row">
+     <label>Целевая длина, слов<input id="jTarget" placeholder="не проверять"></label>
+     <label>Язык<select id="jLang"><option value="">не проверять</option><option>ru</option><option>en</option></select></label>
+     <label>Повтор вызова №<input id="jRepeat" value="0"></label>
+    </div>
+    <label><input type="checkbox" id="jMd">в задании просили markdown</label>
+    <label>Ответы (разделитель — строка из трёх дефисов ---)<textarea id="jAnswers" rows="12"></textarea></label>
+    <div class="bar"><button class="btn" id="jRun">Оценить</button><span class="note" id="jMsg"></span></div>
+    <div class="err" id="jErr"></div>
+   </div>
+   <div class="card" id="jOut" style="display:none"><h2>Результат</h2><div id="jRes"></div></div>
+  </div>
+ </div>
+</section>
+
+<section id="tab-data">
+ <div class="card"><h2>Прогон судьи по текстам с метками Pangram</h2>
+  <div class="row">
+   <label>Набор<select id="dPath"></select></label>
+   <label>Сколько текстов<input id="dLimit" value="60"></label>
+   <label>Мин. слов<input id="dMin" value="0"></label>
+   <label>Макс. слов<input id="dMax" value="100000"></label>
+   <label>Seed<input id="dSeed" value="0"></label>
+   <label>Вызовов на текст<select id="dRep"><option value="1">1</option><option value="2">2 (повторяемость)</option></select></label>
+   <label>Название прогона<input id="dName" placeholder="например opus-low-v2"></label>
+  </div>
+  <div class="bar"><button class="btn" id="dRun">Запустить</button><span class="note" id="dMsg"></span></div>
+  <div class="err" id="dErr"></div>
+ </div>
+ <div class="card"><h2>Прогоны</h2><div id="dRuns"></div></div>
+ <div class="card" id="dDetail" style="display:none"><h2>Расхождения с Pangram</h2><div id="dMiss"></div></div>
+</section>
+
+<section id="tab-gen">
+ <div class="cols">
+  <div>
+   <div class="card"><h2>Генераторы (OpenAI-совместимые endpoint'ы)</h2>
+    <table class="fields"><thead><tr><th></th><th>Имя</th><th>Base URL</th><th>Модель</th><th>Переменная с ключом</th><th></th></tr></thead><tbody id="gens"></tbody></table>
+    <div class="bar"><button class="btn ghost" id="addGen">Добавить</button><span class="note">Сохраняются вместе с конфигом.</span></div>
+   </div>
+   <div class="card"><h2>Запрос</h2>
+    <label>System prompt<textarea id="gSystem" rows="3"></textarea></label>
+    <label>Запрос<textarea id="gPrompt" rows="6"></textarea></label>
+    <div class="row">
+     <label>Сэмплов на модель<input id="gN" value="2"></label>
+     <label>temperature<input id="gTemp" value="1.0"></label>
+     <label>max_tokens<input id="gMax" value="1500"></label>
+     <label>Целевая длина, слов<input id="gTarget" placeholder="не проверять"></label>
+     <label>Язык<select id="gLang"><option value="">не проверять</option><option>ru</option><option>en</option></select></label>
+    </div>
+    <label><input type="checkbox" id="gJudge" checked>сразу оценить судьёй</label>
+    <div class="bar"><button class="btn" id="gRun">Сгенерировать</button><span class="note" id="gMsg"></span></div>
+    <div class="err" id="gErr"></div>
+   </div>
+  </div>
+  <div id="gOut"></div>
+ </div>
+</section>
+
+<section id="tab-train">
+ <div class="cols">
+  <div class="card"><h2>Запуск</h2>
+   <div class="row">
+    <label>LR<input data-p="train.params.lr" data-t="num"></label>
+    <label>LoRA rank<input data-p="train.params.lora_rank" data-t="num"></label>
+    <label>Шагов<input data-p="train.params.steps" data-t="num"></label>
+    <label>Задач на шаг<input data-p="train.params.prompts_per_step" data-t="num"></label>
+    <label>Роллаутов на задачу<input data-p="train.params.num_generations" data-t="num"></label>
+   </div>
+   <label>Команда запуска (выполняется из корня проекта)<textarea data-p="train.command" rows="3" placeholder="bash launch_x.sh --lr {lr} --rank {lora_rank} --steps {steps}"></textarea></label>
+   <p class="note">Подстановки: {lr} {lora_rank} {steps} {prompts_per_step} {num_generations} {config} {reward_url}. Те же значения приходят в окружении: TRAIN_LR, TRAIN_LORA_RANK, …, JUDGE_CONFIG, REWARD_URL. Тренер получает награды запросом POST {reward_url} с полями task, answers, target_words, lang, step.</p>
+   <label>Файл метрик тренера (JSONL, путь от корня проекта; необязательно)<input data-p="train.metrics_path"></label>
+   <div class="bar"><button class="btn" id="tStart">Сохранить и запустить</button><button class="btn warn" id="tStop">Остановить</button><span class="note" id="tMsg"></span></div>
+   <div class="err" id="tErr"></div>
+  </div>
+  <div class="card"><h2>Лог</h2><pre id="tLog"></pre></div>
+ </div>
+ <div class="card"><h2>Кривые по журналу наград</h2><div class="charts" id="tCurves"></div></div>
+ <div class="card"><h2>Метрики тренера</h2><div class="charts" id="tMetrics"></div></div>
+ <div class="card"><h2>Последние оценённые группы</h2><div id="tRoll"></div></div>
+</section>
+
+<section id="tab-blind">
+ <div class="card"><h2>Слепое сравнение</h2>
+  <p class="note">Два ответа на одно задание в случайном порядке, без подписей. Выбери тот, который приятнее получить от живого человека. Голоса пишутся в <code>lab_state/blind.jsonl</code>.</p>
+  <div class="bar">
+   <label style="margin:0">Пары<select id="bMode"><option value="human">человек против модели</option><option value="steps">ранний шаг против позднего</option></select></label>
+   <button class="btn ghost" id="bNext">Следующая пара</button><span class="note" id="bMsg"></span>
+  </div>
+  <div class="err" id="bErr"></div>
+  <div id="bPair" style="display:none">
+   <p class="note" id="bTask" style="white-space:pre-wrap"></p>
+   <div class="cols">
+    <div><div class="text" id="bLeft" style="max-height:520px"></div><div class="bar"><button class="btn" data-vote="left">Левый лучше</button></div></div>
+    <div><div class="text" id="bRight" style="max-height:520px"></div><div class="bar"><button class="btn" data-vote="right">Правый лучше</button></div></div>
+   </div>
+   <div class="bar"><button class="btn ghost" data-vote="same">Одинаково</button><button class="btn ghost" data-vote="both_bad">Оба плохие</button></div>
+  </div>
+ </div>
+ <div class="card"><h2>Итоги</h2><div id="bSum" class="note">Пока нет голосов.</div></div>
+</section>
+
+<section id="tab-vast">
+ <div class="card"><h2>Прогон на Vast</h2>
+  <div class="kpis" id="vKpis"></div>
+  <div class="steps" id="vSteps"></div>
+  <div class="bar">
+   <label style="margin:0"><input type="checkbox" id="vAgree">аренда платная, согласен с лимитами ниже</label>
+   <button class="btn" id="vStart">Сохранить конфиг и запустить</button>
+   <button class="btn ghost" id="vResume">Продолжить с текущим конфигом</button>
+   <button class="btn warn" id="vStop">Завершить прогон (забрать адаптер и вернуть GPU)</button>
+   <span class="note" id="vMsg"></span>
+  </div>
+  <div class="err" id="vErr"></div>
+ </div>
+ <div id="vAlert"></div>
+ <div class="cols">
+  <div>
+   <div class="card"><h2>Лог (обновляется сам)</h2>
+    <div class="bar" style="margin:0 0 8px">
+     <select id="vFilter"><option value="main">без сырых логов GPU</option><option value="all">всё</option><option value="bad">только ошибки и предупреждения</option></select>
+     <select id="vSource"><option value="">все источники</option></select>
+     <label style="margin:0"><input type="checkbox" id="vFollow" checked>прокручивать вниз</label>
+     <span class="note" id="vLogInfo"></span>
+    </div>
+    <div class="logbox" id="vLog"></div>
+   </div>
+   <div class="card"><h2>Награда по шагам (оценённые группы)</h2><div class="charts" id="vCharts"></div></div>
+   <div class="card"><h2>Метрики verl</h2><div class="charts" id="vVerl"></div></div>
+   <div class="card"><h2>Отложенные задачи</h2><div id="vEvals"></div></div>
+  </div>
+  <div>
+   <div class="card"><h2>GPU и лимиты</h2>
+    <div class="row">
+     <label>Число GPU<input data-p="vast.gpu.num_gpus" data-t="num"></label>
+     <label>Имя GPU содержит<input data-p="vast.gpu.name_contains"></label>
+     <label>Память одного GPU от, ГБ<input data-p="vast.gpu.min_gpu_ram_gb" data-t="num"></label>
+     <label>Цена машины до, $/ч<input data-p="vast.gpu.max_price_per_hour" data-t="num"></label>
+     <label>Надёжность от<input data-p="vast.gpu.min_reliability" data-t="num"></label>
+     <label>Сеть от, Мбит/с<input data-p="vast.gpu.min_inet_mbps" data-t="num"></label>
+     <label>Диск, ГБ<input data-p="vast.gpu.disk_gb" data-t="num"></label>
+     <label>Конкретный оффер (0 = самый дешёвый)<input data-p="vast.gpu.offer_id" data-t="num"></label>
+    </div>
+    <label>Docker-образ<input data-p="vast.gpu.image"></label>
+    <div class="row">
+     <label>Максимум часов<input data-p="vast.limits.max_hours" data-t="num"></label>
+     <label>Бюджет аренды (GPU + агент-хост), $<input data-p="vast.limits.gpu_budget_usd" data-t="num"></label>
+     <label>Пауза до авто-уничтожения, мин<input data-p="vast.limits.idle_destroy_minutes" data-t="num"></label>
+     <label>Без связи с ноутбуком машины удалят себя через, мин<input data-p="vast.limits.dead_man_minutes" data-t="num"></label>
+     <label>RAM GPU-машины от, ГБ<input data-p="vast.gpu.min_cpu_ram_gb" data-t="num"></label>
+    </div>
+    <label><input type="checkbox" data-p="vast.limits.destroy_on_finish" data-t="bool">уничтожать инстанс после завершения</label>
+    <div class="bar"><button class="btn ghost" id="vOffers">Найти офферы</button><button class="btn ghost" id="vAcc">Обновить инстансы и баланс</button><span class="note" id="vAccMsg"></span></div>
+    <div id="vOfferList"></div>
+    <div id="vInstances"></div>
+   </div>
+   <div class="card"><h2>Агенты (Hermes, Pi)</h2>
+    <div class="row">
+     <label>Где запускать<select data-p="vast.agents.where"><option value="vast">отдельная VM на Vast</option><option value="local">здесь, в colima</option></select></label>
+     <label>CPU от<input data-p="vast.agents.min_cpu" data-t="num"></label>
+     <label>RAM от, ГБ<input data-p="vast.agents.min_ram_gb" data-t="num"></label>
+     <label>Цена до, $/ч<input data-p="vast.agents.max_price_per_hour" data-t="num"></label>
+     <label>Надёжность от<input data-p="vast.agents.min_reliability" data-t="num"></label>
+     <label>Диск, ГБ<input data-p="vast.agents.disk_gb" data-t="num"></label>
+     <label>Конкретный оффер (0 = самый дешёвый)<input data-p="vast.agents.offer_id" data-t="num"></label>
+     <label>Настройка до, мин<input data-p="vast.agents.setup_timeout_min" data-t="num"></label>
+    </div>
+    <label>Образ VM<input data-p="vast.agents.image"></label>
+    <div class="bar"><button class="btn ghost" id="vHostOffers">Найти агент-хосты</button></div>
+    <div id="vHostList"></div>
+    <p class="note">Контейнеры агентов идут на VM, модель видна им через туннель, который GPU сам открывает к VM: трафик модели не проходит через этот компьютер. Число одновременных контейнеров — поле «Контейнеров одновременно» ниже.</p>
+   </div>
+   <div class="card"><h2>Hugging Face</h2>
+    <div class="row">
+     <label>Переменная с токеном<input data-p="vast.hf.token_env"></label>
+     <label>Репозиторий бэкапов (пусто = автоматически, приватный)<input data-p="vast.hf.backup_repo" placeholder="владелец/имя"></label>
+     <label>Бэкап каждые, шагов<input data-p="vast.hf.backup_every" data-t="num"></label>
+     <label>Хранить последних<input data-p="vast.hf.keep" data-t="num"></label>
+    </div>
+    <label><input type="checkbox" data-p="vast.hf.backup" data-t="bool">бэкапить адаптер в приватный репозиторий</label>
+    <p class="note">Бэкап — только LoRA-адаптер, без оптимизатора. Если на HF кончится место, старые бэкапы удаляются и история репозитория сжимается; только если и это не помогло, бэкапы встают на паузу. Обучение от этого не останавливается. Если GPU пропадёт, новый продолжит с самого свежего адаптера: скачанного сюда или с HF.</p>
+    <div id="vHf"></div>
+    <h2 style="margin-top:14px">Публикация</h2>
+    <div class="row">
+     <label>Репозиторий<input id="pRepo" placeholder="владелец/имя"></label>
+     <label>Шаг (пусто = последний)<input id="pStep"></label>
+    </div>
+    <label><input type="checkbox" id="pMerged">слитая модель целиком (около 54 ГБ; собирается на GPU, пока он арендован), иначе только адаптер</label>
+    <label><input type="checkbox" id="pPublic">публичный репозиторий</label>
+    <label><input type="checkbox" id="pSure">понимаю, что публичный репозиторий увидят все</label>
+    <div class="bar"><button class="btn" id="pRun">Опубликовать</button><span class="note" id="pMsg"></span></div>
+    <div class="err" id="pErr"></div>
+    <div id="pList"></div>
+   </div>
+   <div class="card"><h2>Обучение (verl)</h2>
+    <div class="row">
+     <label>Режим<select data-p="vast.train.mode"><option value="async">async: fully_async_policy, 2 GPU</option><option value="sync">sync: main_ppo, 1 GPU</option></select></label>
+     <label>Шагов оптимизатора<input data-p="vast.train.steps" data-t="num"></label>
+     <label>Задач на шаг<input data-p="vast.train.prompts_per_step" data-t="num"></label>
+     <label>Ответов на задачу<input data-p="vast.train.samples_per_group" data-t="num"></label>
+     <label>Агенты (через запятую)<input data-p="vast.train.agents" data-t="list"></label>
+     <label>LR<input data-p="vast.train.lr" data-t="num"></label>
+     <label>LoRA rank<input data-p="vast.train.lora_rank" data-t="num"></label>
+     <label>LoRA alpha<input data-p="vast.train.lora_alpha" data-t="num"></label>
+     <label>KL coef (0 = без KL и без ref-прохода)<input data-p="vast.train.kl_coef" data-t="num"></label>
+     <label>Апдейтов на шаг<input data-p="vast.train.updates_per_step" data-t="num"></label>
+     <label>Clip ratio (вниз)<input data-p="vast.train.clip_ratio" data-t="num"></label>
+     <label>Clip ratio вверх (clip-higher)<input data-p="vast.train.clip_ratio_high" data-t="num"></label>
+     <label>Температура роллаутов<input data-p="vast.train.temperature" data-t="num"></label>
+     <label>Агенты по шагам<select data-p="vast.train.agent_schedule"><option value="by_step">один агент на шаг (sync не ждёт медленного)</option><option value="mixed">оба агента в каждом шаге</option></select></label>
+     <label>Агрегация лосса<select data-p="vast.train.loss_agg_mode"><option value="token-mean">token-mean</option><option value="seq-mean-token-sum-norm">seq-mean-token-sum-norm (Dr. GRPO)</option><option value="seq-mean-token-mean">seq-mean-token-mean (исходный GRPO)</option></select></label>
+     <label><input type="checkbox" data-p="vast.train.std_normalize" data-t="bool">делить преимущество на std группы (классический GRPO)</label>
+     <label><input type="checkbox" data-p="vast.train.bypass_old_logprob" data-t="bool">старые логпробы из vLLM (без отдельного прохода тренера)</label>
+     <label>Промпт до, токенов<input data-p="vast.train.max_prompt_length" data-t="num"></label>
+     <label>Ответ до, токенов<input data-p="vast.train.max_response_length" data-t="num"></label>
+     <label>Ходов агента<input data-p="vast.train.max_turns" data-t="num"></label>
+     <label>Таймаут попытки, с<input data-p="vast.train.trial_timeout_sec" data-t="num"></label>
+     <label>Контейнеров одновременно<input data-p="vast.train.trial_slots" data-t="num"></label>
+     <label>Чекпойнт каждые, шагов<input data-p="vast.train.save_freq" data-t="num"></label>
+     <label>Скачивать адаптер каждые<input data-p="vast.train.download_every" data-t="num"></label>
+     <label>Проверка каждые, шагов<input data-p="vast.train.test_freq" data-t="num"></label>
+     <label>Задач в проверке<input data-p="vast.train.eval_tasks" data-t="num"></label>
+     <label>Ответов в проверке<input data-p="vast.train.eval_samples" data-t="num"></label>
+     <label>Авто-перезапусков<input data-p="vast.train.auto_retries" data-t="num"></label>
+     <label>Seed<input data-p="vast.train.seed" data-t="num"></label>
+    </div>
+    <div class="row">
+     <label>async: доля устаревших данных<input data-p="vast.train.staleness_threshold" data-t="num"></label>
+     <label>async: синхронизация весов каждые, шагов<input data-p="vast.train.sync_every" data-t="num"></label>
+     <label>токенов в микробатче (упаковка, 0 = по одной траектории)<input data-p="vast.train.micro_tokens" data-t="num"></label>
+     <label>пауза, если ppo_kl выше (0 = не следить)<input data-p="vast.train.max_ppo_kl" data-t="num"></label>
+    </div>
+    <label><input type="checkbox" data-p="vast.train.partial_rollout" data-t="bool">async: прерванная синхронизацией генерация продолжается на новых весах</label>
+    <label><input type="checkbox" data-p="vast.train.cpu_offload" data-t="bool">выгружать веса тренера на CPU (нужно для sync на одном GPU, медленно)</label>
+    <label>Доп. overrides для verl (hydra, через пробел; перекрывают всё выше)<input data-p="vast.train.extra_overrides" placeholder="actor_rollout_ref.actor.optim.weight_decay=0.0"></label>
+    <p class="note">Награда берётся из вкладки «Судья»: те же судьи, формула и штрафы. Изменения применяются кнопкой «Продолжить с текущим конфигом»: verl перезапускается с последнего чекпойнта. rank и alpha посреди прогона менять нельзя.</p>
+   </div>
+   <div class="card"><h2>Модель и vLLM</h2>
+    <div class="row">
+     <label>Модель (Hugging Face)<input data-p="vast.model.hf_id"></label>
+     <label>Ревизия<input data-p="vast.model.revision"></label>
+    </div>
+    <div class="row">
+     <label>Контекст<input data-p="vast.serve.context" data-t="num"></label>
+     <label>Параллельных запросов<input data-p="vast.serve.max_seqs" data-t="num"></label>
+     <label>Токенов в батче<input data-p="vast.serve.max_batched_tokens" data-t="num"></label>
+     <label>Доля памяти GPU под vLLM<input data-p="vast.serve.gpu_util" data-t="num"></label>
+    </div>
+    <label><input type="checkbox" data-p="vast.serve.enforce_eager" data-t="bool">enforce_eager (медленнее, но без компиляции графа)</label>
+    <label><input type="checkbox" data-p="vast.serve.prefix_caching" data-t="bool">prefix caching</label>
+    <label>MTP: черновых токенов (0 = выкл.)<input data-p="vast.serve.mtp_tokens" data-t="num"></label>
+   </div>
+   <div class="card"><h2>Локальная машина</h2>
+    <div class="row">
+     <label>SSH-ключ<input data-p="vast.local.ssh_key"></label>
+     <label>Python с harbor<input data-p="vast.local.python"></label>
+     <label>Docker host<input data-p="vast.local.docker_host"></label>
+     <label>Порт туннеля<input data-p="vast.local.tunnel_port" data-t="num"></label>
+     <label>Порт координатора<input data-p="vast.local.coordinator_port" data-t="num"></label>
+     <label>Файл задач<input data-p="vast.local.tasks"></label>
+     <label>Каталог Harbor-задач<input data-p="vast.local.task_root"></label>
+     <label>Сборщик траекторий<input data-p="vast.local.collector"></label>
+     <label>Зависимости агент-хоста<input data-p="vast.local.requirements"></label>
+     <label>Dockerfile агентов<input data-p="vast.local.agent_images"></label>
+     <label>Плагины Docker (linux)<input data-p="vast.local.docker_plugins"></label>
+     <label>Agent loop для verl<input data-p="vast.local.native"></label>
+     <label>verl<input data-p="vast.local.verl"></label>
+     <label>Версия Pi<input data-p="vast.local.agent_versions.pi"></label>
+     <label>Версия Hermes<input data-p="vast.local.agent_versions.hermes"></label>
+     <label>Bootstrap до, мин<input data-p="vast.local.bootstrap_timeout_min" data-t="num"></label>
+    </div>
+   </div>
+  </div>
+ </div>
+</section>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const TABS = [['judge', 'Судья'], ['data', 'Сверка с Pangram'], ['gen', 'Генератор'], ['train', 'Обучение'], ['vast', 'Vast'], ['blind', 'Слепое сравнение']];
+let cfg = null, trainTimer = null, vastTimer = null;
+
+function el(tag, attrs, ...kids) {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (k === 'on') for (const [e, f] of Object.entries(v)) node.addEventListener(e, f);
+    else if (k === 'text') node.textContent = v;
+    else if (v !== false && v != null) node.setAttribute(k, v);
+  }
+  for (const kid of kids.flat()) if (kid != null) node.append(kid);
+  return node;
+}
+async function api(path, body) {
+  const res = await fetch(path, body === undefined ? {} : {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || res.statusText);
+  return data;
+}
+async function runJob(start, onProgress) {
+  const {job} = await start;
+  for (;;) {
+    await new Promise(r => setTimeout(r, 700));
+    const state = await api('/api/job?id=' + job);
+    if (onProgress) onProgress(state);
+    if (state.status === 'done') return state.result;
+    if (state.status === 'failed') throw new Error(state.error);
+  }
+}
+const fmt = (v, d = 2) => v == null ? '—' : Number(v).toFixed(d);
+const pct = v => v == null ? '—' : (100 * v).toFixed(1) + '%';
+const num = v => v === '' || v == null ? null : Number(v);
+
+// ---------- config binding
+function getPath(path) { return path.split('.').reduce((o, k) => o[k], cfg); }
+function setPath(path, value) { const keys = path.split('.'); const last = keys.pop(); keys.reduce((o, k) => o[k], cfg)[last] = value; }
+function readInput(input) {
+  const t = input.dataset.t;
+  if (t === 'bool') return input.checked;
+  if (t === 'num') return Number(input.value);
+  if (t === 'optnum') return input.value.trim() === '' ? null : Number(input.value);
+  if (t === 'list') return input.value.split(',').map(x => x.trim()).filter(Boolean);
+  return input.value;
+}
+function renderConfig() {
+  document.querySelectorAll('[data-p]').forEach(input => {
+    const value = getPath(input.dataset.p);
+    if (input.dataset.t === 'bool') input.checked = !!value; else input.value = value == null ? '' : value;
+    input.oninput = () => { setPath(input.dataset.p, readInput(input)); if (input.dataset.p === 'judge.system') promptLen(); };
+  });
+  promptLen();
+  rowsEditor('fields', cfg.judge.fields, ['name', 'min', 'max', 'description'], {min: 'num', max: 'num'});
+  rowsEditor('gens', cfg.generators, ['name', 'base_url', 'model', 'api_key_env'], {}, true);
+}
+function promptLen() { $('promptLen').textContent = cfg.judge.system.length.toLocaleString('ru') + ' символов'; }
+function rowsEditor(id, list, keys, types, withCheck) {
+  const body = $(id); body.replaceChildren();
+  list.forEach((row, index) => body.append(el('tr', {},
+    withCheck ? el('td', {}, el('input', {type: 'checkbox', class: 'genPick', value: row.name, checked: index < 2 ? '' : null})) : null,
+    keys.map(k => el('td', {}, el('input', {value: row[k], on: {input: e => { row[k] = types[k] === 'num' ? Number(e.target.value) : e.target.value; }}}))),
+    el('td', {}, el('button', {class: 'btn ghost', text: '×', on: {click: () => { list.splice(index, 1); renderConfig(); }}})))));
+}
+async function saveConfig() {
+  cfg = await api('/api/config', cfg);
+  renderConfig();
+  $('saveMsg').textContent = 'Сохранено ' + new Date().toLocaleTimeString('ru');
+  refreshStatus();
+}
+
+// ---------- status
+async function refreshStatus() {
+  const s = await api('/api/status');
+  $('status').replaceChildren(...[
+    el('span', {}, el('i', {class: 'dot' + (s.judge_key ? ' ok' : '')}), s.judge_key ? 'ключ судьи есть' : 'нет ключа судьи'),
+    el('span', {text: s.judge_model}),
+    el('span', {text: `потрачено $${s.spent_usd.toFixed(2)} из $${s.budget_usd} · ${s.requests} запросов`}),
+    s.train_running ? el('span', {}, el('i', {class: 'dot ok'}), 'обучение идёт') : null].filter(Boolean));
+}
+
+// ---------- shared result table
+function scoreTable(answers, result) {
+  const fields = cfg.judge.fields.concat(cfg.task_judge.enabled ? cfg.task_judge.fields : []).map(f => f.name);
+  const s = result.stats;
+  return el('div', {},
+    el('div', {class: 'kpis'},
+      el('div', {}, el('span', {text: 'средняя награда'}), el('b', {text: fmt(s.mean, 3)})),
+      el('div', {}, el('span', {text: 'разброс в группе (std)'}), el('b', {text: fmt(s.std, 3)})),
+      el('div', {}, el('span', {text: 'сигнал для GRPO'}), el('b', {text: s.tied ? 'нет, ничья' : 'есть'})),
+      el('div', {}, el('span', {text: 'стоимость'}), el('b', {text: '$' + fmt(result.cost_usd, 4)}))),
+    el('table', {}, el('thead', {}, el('tr', {}, el('th', {text: '#'}), el('th', {class: 'num', text: 'награда'}),
+      fields.map(f => el('th', {class: 'num', text: f})), el('th', {class: 'num', text: 'слов'}), el('th', {class: 'num', text: 'длина'}),
+      el('th', {class: 'num', text: 'штраф'}), el('th', {text: 'текст и причина'}))),
+      el('tbody', {}, result.items.map((item, i) => el('tr', {},
+        el('td', {text: i + 1}), el('td', {class: 'num'}, el('b', {text: fmt(item.reward, 3)})),
+        fields.map(f => el('td', {class: 'num', text: item.empty ? '—' : fmt(item.scores[f], 1)})),
+        el('td', {class: 'num', text: item.words}), el('td', {class: 'num', text: item.empty ? '—' : fmt(item.length)}),
+        el('td', {class: 'num', text: item.empty ? '—' : fmt(item.penalty)}),
+        el('td', {}, item.empty ? el('span', {class: 'tag', text: 'пусто'}) : Object.entries(item.flags).filter(e => e[1]).map(e => el('span', {class: 'tag', text: e[0]})),
+          el('div', {class: 'text', text: answers[i]}), el('div', {class: 'note', text: item.reason || ''})))))));
+}
+async function withButton(button, msg, err, fn) {
+  button.disabled = true; err.textContent = ''; msg.textContent = 'идёт…';
+  try { await fn(); msg.textContent = 'готово'; } catch (e) { err.textContent = e.message; msg.textContent = ''; }
+  button.disabled = false; refreshStatus();
+}
+
+// ---------- judge tab
+$('save').onclick = () => saveConfig().catch(e => { $('saveMsg').textContent = e.message; });
+$('addField').onclick = () => { cfg.judge.fields.push({name: 'field' + cfg.judge.fields.length, min: 0, max: 10, description: ''}); renderConfig(); };
+$('loadPrompt').onclick = async () => {
+  const patch = (await api('/api/prompt_file?name=' + encodeURIComponent($('promptFile').value))).patch;
+  for (const part in patch) Object.assign(cfg[part], patch[part]);
+  renderConfig();
+};
+$('jRun').onclick = () => withButton($('jRun'), $('jMsg'), $('jErr'), async () => {
+  await saveConfig();
+  const answers = $('jAnswers').value.split(/^\s*---\s*$/m).map(s => s.trim()).filter(Boolean);
+  const result = await runJob(api('/api/score', {task: $('jTask').value || null, answers, target_words: num($('jTarget').value),
+    lang: $('jLang').value, allow_markdown: $('jMd').checked, repeat: Number($('jRepeat').value) || 0}));
+  $('jOut').style.display = ''; $('jRes').replaceChildren(scoreTable(answers, result));
+});
+
+// ---------- dataset tab
+async function loadRuns() {
+  const runs = await api('/api/runs');
+  const head = ['прогон', 'модель', 'режим', 'reasoning', 'правило AI', 'n', 'согласие', 'balanced acc', 'human верно', 'AI верно', 'AUROC', 'смена метки', 'ошибок', '$'];
+  $('dRuns').replaceChildren(runs.length ? el('table', {}, el('thead', {}, el('tr', {}, head.map((h, i) => el('th', {class: i > 4 ? 'num' : '', text: h})))),
+    el('tbody', {}, runs.map(r => el('tr', {class: 'pick', on: {click: () => showRun(r.file)}},
+      el('td', {text: r.name}), el('td', {text: r.model}), el('td', {text: r.mode}), el('td', {text: r.reasoning || '—'}), el('td', {text: r.ai_when}),
+      el('td', {class: 'num', text: `${r.n} (${r.n_human}h/${r.n_ai}ai)`}), el('td', {class: 'num', text: pct(r.agreement)}),
+      el('td', {class: 'num', text: pct(r.balanced_accuracy)}), el('td', {class: 'num', text: pct(r.human_recall)}),
+      el('td', {class: 'num', text: pct(r.ai_recall)}), el('td', {class: 'num', text: fmt(r.auroc, 3)}),
+      el('td', {class: 'num', text: pct(r.flip_rate)}), el('td', {class: 'num', text: r.failed}), el('td', {class: 'num', text: fmt(r.cost_usd)})))))
+    : el('p', {class: 'note', text: 'Прогонов пока нет.'}));
+}
+async function showRun(file) {
+  const run = await api('/api/run?file=' + encodeURIComponent(file));
+  $('dDetail').style.display = '';
+  $('dMiss').replaceChildren(el('p', {class: 'note', text: `${run.name}: ${run.misses.length} расхождений показано. Клик по строке прогона меняет список.`}),
+    el('div', {class: 'bar', style: 'margin-bottom:10px'}, el('button', {class: 'btn ghost', text: 'Вернуть конфиг этого прогона в редактор',
+      on: {click: () => { cfg = Object.assign({}, cfg, run.config); renderConfig(); switchTab('judge'); }}})),
+    run.by_source ? el('table', {style: 'margin-bottom:12px'}, el('thead', {}, el('tr', {}, ['источник / вид', 'верно', 'средняя оценка'].map(h => el('th', {text: h})))),
+      el('tbody', {}, Object.entries(run.by_source).sort().map(e => el('tr', {}, el('td', {text: e[0]}),
+        el('td', {text: `${e[1].correct} / ${e[1].n}`}), el('td', {text: fmt(e[1].mean_score, 1)}))))) : null,
+    el('table', {}, el('thead', {}, el('tr', {}, [run.task_set ? 'эталон' : 'Pangram', 'оценки', 'слов', 'источник', 'текст и причина судьи'].map(h => el('th', {text: h})))),
+      el('tbody', {}, run.misses.map(m => el('tr', {}, el('td', {text: run.task_set ? (m.pangram_ai ? 'нарушение' : 'выполнено') : (m.pangram_ai ? 'AI' : 'human')}),
+        el('td', {text: Object.entries(m.scores).map(e => e[0] + ' ' + e[1]).join(', ')}), el('td', {text: m.words}), el('td', {text: m.source}),
+        el('td', {}, el('div', {class: 'text', text: m.text}), el('div', {class: 'note', text: m.reason})))))));
+}
+$('dRun').onclick = () => withButton($('dRun'), $('dMsg'), $('dErr'), async () => {
+  await saveConfig();
+  await runJob(api('/api/dataset_run', {path: $('dPath').value, limit: Number($('dLimit').value), min_words: Number($('dMin').value),
+    max_words: Number($('dMax').value), seed: Number($('dSeed').value), repeats: Number($('dRep').value), name: $('dName').value}),
+    s => { $('dMsg').textContent = `${s.done} / ${s.total}`; });
+  await loadRuns();
+});
+
+// ---------- generator tab
+$('addGen').onclick = () => { cfg.generators.push({name: 'model' + cfg.generators.length, base_url: 'https://openrouter.ai/api/v1', model: '', api_key_env: 'OPENROUTER_API_KEY'}); renderConfig(); };
+$('gRun').onclick = () => withButton($('gRun'), $('gMsg'), $('gErr'), async () => {
+  const picked = [...document.querySelectorAll('.genPick:checked')].map(c => c.value);
+  await saveConfig();
+  const out = await runJob(api('/api/generate', {generators: picked, system: $('gSystem').value, prompt: $('gPrompt').value, n: Number($('gN').value),
+    temperature: Number($('gTemp').value), max_tokens: Number($('gMax').value), target_words: num($('gTarget').value), lang: $('gLang').value,
+    judge: $('gJudge').checked}), s => { $('gMsg').textContent = `${s.done} / ${s.total} моделей`; });
+  $('gOut').replaceChildren(...out.map(entry => el('div', {class: 'card'}, el('h2', {text: `${entry.name} · ${entry.model}`}),
+    entry.score ? scoreTable(entry.texts, entry.score) : entry.texts.map(t => el('div', {class: 'text', style: 'margin-bottom:8px', text: t})))));
+});
+
+// ---------- train tab
+function chart(title, points, key) {
+  const values = points.map(p => p[key]).filter(v => typeof v === 'number');
+  if (values.length < 1) return null;
+  const lo = Math.min(...values), hi = Math.max(...values), span = hi - lo || 1;
+  const xy = values.map((v, i) => `${10 + (values.length > 1 ? i / (values.length - 1) : 0.5) * 380},${170 - (v - lo) / span * 150}`);
+  return el('div', {}, el('div', {class: 'note', text: `${title}: последнее ${fmt(values[values.length - 1], 3)}, мин ${fmt(lo, 3)}, макс ${fmt(hi, 3)}, точек ${values.length}`}),
+    svg(`<polyline fill="none" stroke="#245a42" stroke-width="2" points="${xy.join(' ')}"/>` + (values.length === 1 ? `<circle cx="200" cy="95" r="4" fill="#245a42"/>` : '')));
+}
+function svg(inner) { const box = document.createElement('div'); box.innerHTML = `<svg viewBox="0 0 400 190" preserveAspectRatio="none">${inner}</svg>`; return box.firstChild; }
+function charts(target, points, skip) {
+  const keys = [...new Set(points.flatMap(p => Object.keys(p)))].filter(k => !skip.includes(k));
+  const nodes = keys.map(k => chart(k, points, k)).filter(Boolean);
+  $(target).replaceChildren(...(nodes.length ? nodes : [el('p', {class: 'note', text: 'Данных пока нет.'})]));
+}
+async function refreshTrain() {
+  const s = await api('/api/train/status');
+  $('tMsg').textContent = s.running ? 'идёт с ' + new Date(s.started * 1000).toLocaleTimeString('ru') : s.exit_code == null ? 'не запускалось' : 'завершилось, код ' + s.exit_code;
+  $('tLog').textContent = s.log || '—';
+  charts('tCurves', s.curve, ['step', 'groups']);
+  charts('tMetrics', s.metrics, ['step']);
+  $('tRoll').replaceChildren(...(s.rollouts.length ? s.rollouts.map(r => el('details', {}, el('summary', {text:
+    `${new Date(r.ts * 1000).toLocaleTimeString('ru')} · ${r.source}${r.step != null ? ' · шаг ' + r.step : ''} · средняя ${fmt(r.stats.mean, 3)} · std ${fmt(r.stats.std, 3)} · ${(r.task || '').slice(0, 90)}`}),
+    scoreTable(r.answers, {items: r.items, stats: r.stats, cost_usd: 0}))) : [el('p', {class: 'note', text: 'Оценённых групп пока нет.'})]));
+}
+$('tStart').onclick = () => withButton($('tStart'), $('tMsg'), $('tErr'), async () => { await saveConfig(); await api('/api/train/start', {}); await refreshTrain(); });
+$('tStop').onclick = () => withButton($('tStop'), $('tMsg'), $('tErr'), async () => { await api('/api/train/stop', {}); await refreshTrain(); });
+
+// ---------- vast tab
+const V_STAGES = [['preflight', 'проверка'], ['rent', 'аренда'], ['upload', 'загрузка кода'], ['bootstrap', 'окружение и модель'],
+  ['config', 'проверка конфига verl'], ['train', 'обучение'], ['finish', 'завершение']];
+const V_STATUS = {starting: 'запускается', running: 'идёт', paused: 'пауза: нужна реакция', finished: 'завершён'};
+let vRun = null, vNext = 0, vEvents = [], vSources = new Set();
+const mean = xs => xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
+function vLine(e) {
+  return el('div', {class: 'lv-' + e.level}, el('span', {class: 't', text: new Date(e.ts * 1000).toLocaleTimeString('ru')}),
+    el('span', {class: 's', text: e.source === 'runner' ? (e.stage || '') : e.source}), e.level === 'stage' ? '▶ ' + e.msg : e.msg + (e.hint ? '\n→ ' + e.hint : ''));
+}
+function vShown(e) {
+  const f = $('vFilter').value, src = $('vSource').value;
+  if (src && e.source !== src) return false;
+  return f === 'all' || (f === 'main' && e.level !== 'log') || (f === 'bad' && (e.level === 'error' || e.level === 'warn'));
+}
+function vRenderLog(fresh) {
+  const box = $('vLog');
+  if (!fresh) box.replaceChildren(...vEvents.filter(vShown).slice(-3000).map(vLine));
+  else { box.append(...fresh.filter(vShown).map(vLine)); while (box.childNodes.length > 3000) box.firstChild.remove(); }
+  if ($('vFollow').checked) box.scrollTop = box.scrollHeight;
+  $('vLogInfo').textContent = `${vEvents.length} строк, ошибок ${vEvents.filter(e => e.level === 'error').length}`;
+}
+function vGroupStats(groups) {
+  return {'награда': mean(groups.map(g => g.reward)), 'разброс в группе': mean(groups.map(g => g.std)), 'доля ничьих': mean(groups.map(g => g.tied ? 1 : 0)),
+    'слов в ответе': mean(groups.map(g => g.words)), 'пустых ответов на группу': mean(groups.map(g => g.empty)),
+    ...Object.fromEntries([...new Set(groups.flatMap(g => Object.keys(g.scores)))].map(k => ['оценка ' + k, mean(groups.map(g => g.scores[k]).filter(v => v != null))]))};
+}
+async function refreshVast() {
+  let s;
+  try { s = await api('/api/vast/state'); } catch (e) { $('vErr').textContent = 'Сервер лаборатории не отвечает: ' + e.message; return; }
+  const run = s.run, t = cfg.vast.train;
+  const kpi = (a, b) => el('div', {}, el('span', {text: a}), el('b', {text: b}));
+  if (!run) { $('vKpis').replaceChildren(kpi('прогон', 'ещё не запускался'), kpi('судья потратил всего', '$' + fmt(s.judge_spent))); $('vSteps').replaceChildren(); return; }
+  const inst = run.instance, dead = !s.alive && run.status !== 'finished', groups = run.groups || [];
+  const trainGroups = groups.filter(g => g.source === 'train');
+  $('vKpis').replaceChildren(
+    kpi('прогон ' + run.run_id, dead ? 'раннер не работает' : V_STATUS[run.status] || run.status),
+    kpi('шаг verl', `${run.completed || 0} / ${t.steps}`),
+    kpi('оценено групп', `${trainGroups.length} / ${t.steps * t.prompts_per_step}`),
+    kpi('GPU', inst ? `${inst.id} · ${inst.gpu_name || ''}${inst.guard === false ? ' · без стража!' : ''}` : (run.destroyed || []).length ? 'возвращён' : 'нет'),
+    kpi('агент-хост', run.agents ? `${run.agents.id} · ${run.agents.gpu_name || ''}${run.agents.guard === false ? ' · без стража!' : ''}` : cfg.vast.agents.where === 'local' ? 'этот компьютер' : 'нет'),
+    kpi('аренда', `${fmt(s.gpu_hours, 1)} ч GPU · ≈ $${fmt(s.gpu_usd)}`), kpi('судья за прогон', '$' + fmt(groups.reduce((a, g) => a + g.usd, 0))),
+    kpi('бэкап на HF', run.hf_paused ? 'на паузе' : run.hf_backed ? 'шаг ' + run.hf_backed : '—'));
+  const resume = el('button', {class: 'btn ghost', text: 'Возобновить бэкапы'});
+  resume.onclick = () => withButton(resume, $('pMsg'), $('pErr'), async () => { await saveConfig(); await api('/api/vast/hf_resume', {}); });
+  $('vHf').replaceChildren(...[
+    run.hf_repo || (s.local_adapters || []).length ? el('p', {class: 'note', text: `Бэкапы на HF: ${run.hf_repo || '—'}, последний — шаг ${run.hf_backed || '—'}. Скачано сюда: ${(s.local_adapters || []).join(', ') || 'пока ничего'}.`}) : null,
+    run.hf_paused ? el('div', {class: 'alert'}, el('h3', {text: 'Бэкапы на HF на паузе'}), el('div', {class: 'hint', text: run.hf_paused}), el('div', {class: 'bar'}, resume)) : null,
+  ].filter(Boolean));
+  $('pList').replaceChildren(...(run.published || []).map(p => el('p', {class: 'note'}, `шаг ${p.step} · ${p.merged ? 'слитая модель' : 'адаптер'} · ${p.public ? 'публично' : 'приватно'} · `,
+    el('a', {href: p.url, target: '_blank', text: p.repo}))));
+  const at = V_STAGES.findIndex(x => x[0] === run.stage);
+  $('vSteps').replaceChildren(...V_STAGES.map(([id, title], i) => el('span', {class: run.stage === 'finished' || i < at ? 'done' : i === at ? (run.status === 'paused' ? 'bad' : 'now') : '', text: title})));
+  const alert = [];
+  if (run.error) alert.push(el('div', {class: 'alert'}, el('h3', {text: `Ошибка на этапе «${(V_STAGES.find(x => x[0] === run.error.stage) || [0, run.error.stage])[1]}»`}),
+    run.error.hint ? el('div', {class: 'hint', text: run.error.hint}) : null, el('pre', {text: run.error.message}),
+    el('div', {class: 'note', style: 'margin-top:8px', text: inst ? `Инстанс ${inst.id} оставлен включённым. Исправьте причину и нажмите «Продолжить», иначе через ${cfg.vast.limits.idle_destroy_minutes} мин паузы прогон завершится сам.` : 'Инстанс не арендован, деньги не тратятся.'})));
+  if (dead) alert.push(el('div', {class: 'alert'}, el('h3', {text: 'Раннер не работает, хотя прогон не завершён'}),
+    el('div', {class: 'hint', text: inst ? `Инстанс ${inst.id} продолжает стоить денег. «Продолжить» перезапустит раннер с места остановки, «Завершить прогон» заберёт адаптер и вернёт GPU.` : '«Продолжить» перезапустит раннер.'}),
+    s.runner_log ? el('pre', {text: s.runner_log}) : null));
+  $('vAlert').replaceChildren(...alert);
+  const steps = [...new Set(trainGroups.map(g => g.step))].sort((a, b) => a - b);
+  charts('vCharts', steps.map(step => vGroupStats(trainGroups.filter(g => g.step === step))), []);
+  charts('vVerl', (run.history || []).map(h => { const {step, ...rest} = h; return rest; }), []);
+  const rounds = {};
+  groups.filter(g => g.source === 'eval').forEach(g => { const before = trainGroups.filter(x => x.ts < g.ts).length; (rounds[before] = rounds[before] || []).push(g); });
+  const rows = Object.entries(rounds).sort((a, b) => a[0] - b[0]).map(([before, gs]) => [before, gs.length, vGroupStats(gs)]);
+  const cols = rows.length ? Object.keys(rows[0][2]) : [];
+  $('vEvals').replaceChildren(rows.length ? el('table', {}, el('thead', {}, el('tr', {}, ['после обуч. групп', 'групп', ...cols].map(h => el('th', {class: 'num', text: h})))),
+    el('tbody', {}, rows.map(([before, n, st]) => el('tr', {}, el('td', {class: 'num', text: before === '0' ? '0 (база)' : before}), el('td', {class: 'num', text: n}),
+      cols.map(c => el('td', {class: 'num', text: fmt(st[c], 3)})))))) : el('p', {class: 'note', text: 'Проверок пока не было.'}));
+  if (vRun !== run.run_id) { vRun = run.run_id; vNext = 0; vEvents = []; vSources = new Set(); $('vSource').replaceChildren(el('option', {value: '', text: 'все источники'})); vRenderLog(); }
+  const page = await api('/api/vast/events?after=' + vNext);
+  if (page.run_id === vRun && page.events.length) {
+    vNext = page.next; vEvents.push(...page.events);
+    page.events.forEach(e => { if (!vSources.has(e.source)) { vSources.add(e.source); $('vSource').append(el('option', {value: e.source, text: e.source})); } });
+    vRenderLog(page.events);
+  }
+}
+async function vastAccount() {
+  try {
+    const a = await api('/api/vast/account');
+    $('vAccMsg').textContent = `баланс Vast $${fmt(a.credit)}`;
+    $('vInstances').replaceChildren(a.instances.length ? el('table', {style: 'margin-top:10px'}, el('thead', {}, el('tr', {}, ['инстанс', 'метка', 'GPU', 'статус', '$/ч', ''].map(h => el('th', {text: h})))),
+      el('tbody', {}, a.instances.map(i => el('tr', {}, el('td', {text: i.id}), el('td', {text: i.label || '—'}), el('td', {text: `${i.num_gpus || 1}× ${i.gpu_name}`}), el('td', {text: i.actual_status}), el('td', {text: fmt(i.dph_total)}),
+        el('td', {}, el('button', {class: 'btn warn', text: 'Уничтожить', on: {click: async ev => {
+          if (ev.target.dataset.sure !== '1') { ev.target.dataset.sure = '1'; ev.target.textContent = 'Точно уничтожить?'; return; }
+          try { await api('/api/vast/destroy', {id: i.id}); } catch (e) { $('vErr').textContent = e.message; }
+          vastAccount();
+        }}})))))) : el('p', {class: 'note', style: 'margin-top:10px', text: 'Арендованных инстансов нет.'}));
+  } catch (e) { $('vAccMsg').textContent = 'Vast: ' + e.message; }
+}
+$('vAcc').onclick = vastAccount;
+$('vOffers').onclick = () => withButton($('vOffers'), $('vAccMsg'), $('vErr'), async () => {
+  await saveConfig();
+  const offers = await api('/api/vast/offers');
+  $('vOfferList').replaceChildren(offers.length ? el('table', {style: 'margin-top:10px'}, el('thead', {}, el('tr', {}, ['оффер', 'GPU', '≤ $/ч', 'надёжность', 'RAM, ГБ', 'сеть ↓', 'где', ''].map(h => el('th', {text: h})))),
+    el('tbody', {}, offers.slice(0, 12).map(o => el('tr', {}, el('td', {text: o.id}), el('td', {text: `${o.num_gpus}× ${o.gpu_name}`}), el('td', {text: fmt(o.hourly_bound)}), el('td', {text: pct(o.reliability2)}),
+      el('td', {text: fmt(o.cpu_ram / 1000, 0)}), el('td', {text: fmt(o.inet_down, 0)}), el('td', {text: o.geolocation}),
+      el('td', {}, el('button', {class: 'btn ghost', text: 'взять этот', on: {click: () => { cfg.vast.gpu.offer_id = o.id; renderConfig(); }}}))))))
+    : el('p', {class: 'err', text: 'Под эти фильтры офферов нет.'}));
+});
+$('vFilter').onchange = $('vSource').onchange = () => vRenderLog();
+$('vHostOffers').onclick = () => withButton($('vHostOffers'), $('vAccMsg'), $('vErr'), async () => {
+  await saveConfig();
+  const offers = await api('/api/vast/host_offers');
+  $('vHostList').replaceChildren(offers.length ? el('table', {style: 'margin-top:10px'}, el('thead', {}, el('tr', {}, ['оффер', 'CPU', 'RAM, ГБ', '≤ $/ч', 'надёжность', 'где', ''].map(h => el('th', {text: h})))),
+    el('tbody', {}, offers.slice(0, 10).map(o => el('tr', {}, el('td', {text: o.id}), el('td', {text: fmt(o.cpu_cores_effective, 0)}), el('td', {text: fmt(o.cpu_ram / 1000, 0)}),
+      el('td', {text: fmt(o.hourly_bound)}), el('td', {text: pct(o.reliability2)}), el('td', {text: o.geolocation}),
+      el('td', {}, el('button', {class: 'btn ghost', text: 'взять этот', on: {click: () => { cfg.vast.agents.offer_id = o.id; renderConfig(); }}}))))))
+    : el('p', {class: 'err', text: 'Под эти фильтры VM нет.'}));
+});
+$('pRun').onclick = () => withButton($('pRun'), $('pMsg'), $('pErr'), async () => {
+  if ($('pPublic').checked && !$('pSure').checked) throw new Error('Для публичного репозитория отметьте, что понимаете: его увидят все.');
+  const out = await api('/api/vast/publish', {repo: $('pRepo').value.trim(), step: $('pStep').value.trim() || null, merged: $('pMerged').checked, public: $('pPublic').checked});
+  $('pSure').checked = false;
+  if (out.queued) { $('pMsg').textContent = 'передано раннеру, ход — в логе'; return; }
+  const result = await runJob(Promise.resolve(out));
+  $('pMsg').textContent = 'опубликовано: ' + result.url;
+});
+$('vStart').onclick = () => withButton($('vStart'), $('vMsg'), $('vErr'), async () => {
+  if (!$('vAgree').checked) throw new Error('Отметьте согласие с платной арендой: до $' + cfg.vast.gpu.max_price_per_hour + '/ч, не больше $' + cfg.vast.limits.gpu_budget_usd + ' и ' + cfg.vast.limits.max_hours + ' ч.');
+  await saveConfig(); await api('/api/vast/start', {}); $('vAgree').checked = false; await refreshVast();
+});
+$('vResume').onclick = () => withButton($('vResume'), $('vMsg'), $('vErr'), async () => { await saveConfig(); await api('/api/vast/resume', {}); await refreshVast(); });
+$('vStop').onclick = () => withButton($('vStop'), $('vMsg'), $('vErr'), async () => { await api('/api/vast/stop', {}); await refreshVast(); });
+
+// ---------- blind comparison
+let blindPair = null;
+async function blindNext() {
+  $('bErr').textContent = '';
+  try {
+    const p = await api('/api/blind/next?mode=' + $('bMode').value);
+    if (p.done) { blindPair = null; $('bPair').style.display = 'none'; $('bMsg').textContent = 'Пары этого вида закончились'; return; }
+    blindPair = p;
+    $('bTask').textContent = p.task; $('bLeft').textContent = p.left; $('bRight').textContent = p.right;
+    $('bPair').style.display = ''; $('bMsg').textContent = 'осталось пар: ' + p.left_count;
+  } catch (e) { $('bErr').textContent = e.message; }
+}
+async function blindSummary() {
+  const s = await api('/api/blind/summary');
+  const rows = Object.entries(s).map(([mode, c]) => el('tr', {},
+    el('td', {text: mode === 'human' ? 'человек против модели' : 'ранний против позднего'}), el('td', {class: 'num', text: c.n}),
+    el('td', {class: 'num', text: mode === 'human' ? pct(c.human_win_rate) : pct(c.later_win_rate)}),
+    el('td', {class: 'num', text: c.same}), el('td', {class: 'num', text: c.both_bad}),
+    el('td', {class: 'num', text: c.judge_agreement == null ? '—' : pct(c.judge_agreement) + ' из ' + c.judge_n})));
+  $('bSum').replaceChildren(rows.length ? el('table', {}, el('tr', {}, ...['Пары', 'Голосов', 'Выиграл человек / поздний шаг', 'Одинаково', 'Оба плохие', 'Судья согласен'].map(t => el('th', {text: t}))), ...rows) : 'Пока нет голосов.');
+}
+document.querySelectorAll('[data-vote]').forEach(b => b.onclick = async () => {
+  if (!blindPair) return;
+  try { await api('/api/blind/vote', {id: blindPair.id, choice: b.dataset.vote}); } catch (e) { $('bErr').textContent = e.message; return; }
+  await blindSummary(); await blindNext();
+});
+$('bNext').onclick = blindNext;
+$('bMode').onchange = blindNext;
+
+// ---------- tabs and boot
+function switchTab(name) {
+  TABS.forEach(([id]) => { $('tab-' + id).classList.toggle('on', id === name); $('nav-' + id).classList.toggle('on', id === name); });
+  clearInterval(trainTimer); clearInterval(vastTimer);
+  if (name === 'vast') { refreshVast(); vastAccount(); vastTimer = setInterval(refreshVast, 2000); }
+  if (name === 'data') loadRuns();
+  if (name === 'blind') { blindSummary(); if (!blindPair) blindNext(); }
+  if (name === 'train') { refreshTrain(); trainTimer = setInterval(refreshTrain, 5000); }
+}
+(async () => {
+  TABS.forEach(([id, title]) => $('nav').append(el('button', {id: 'nav-' + id, text: title, on: {click: () => switchTab(id)}})));
+  cfg = await api('/api/config');
+  renderConfig(); switchTab('judge'); refreshStatus();
+  (await api('/api/prompt_files')).forEach(n => $('promptFile').append(el('option', {text: n})));
+  (await api('/api/datasets')).forEach(n => $('dPath').append(el('option', {text: n})));
+  api('/api/models').then(ids => ids.forEach(id => $('models').append(el('option', {value: id})))).catch(() => {});
+})();
+</script>
+</body>
+</html>
